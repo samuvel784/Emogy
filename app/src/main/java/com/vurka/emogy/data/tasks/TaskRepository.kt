@@ -98,6 +98,10 @@ class TaskRepository(
                 outcome = ClaimOutcome.ClockAnomaly
                 return@edit
             }
+            if (!calendar.isMonthlyWindowOpen(today)) {
+                outcome = ClaimOutcome.Expired
+                return@edit
+            }
             var current = engine.ensureCurrent(decode(prefs), now)
             val instance = current.period(period)?.instance(definitionId)
             outcome = when {
@@ -126,6 +130,7 @@ class TaskRepository(
             val now = calendar.nowMillis()
             val lastSeen = prefs[GameKeys.LAST_SEEN_DAY] ?: 0L
             if (today < lastSeen) return@edit
+            if (period == TaskPeriod.MONTHLY && !calendar.isMonthlyWindowOpen(today)) return@edit
 
             var current = engine.ensureCurrent(decode(prefs), now)
             val ready = engine.readyToClaim(current, period)
@@ -164,6 +169,10 @@ class TaskRepository(
             val lastSeen = prefs[GameKeys.LAST_SEEN_DAY] ?: 0L
             if (today < lastSeen) {
                 outcome = ClaimOutcome.ClockAnomaly
+                return@edit
+            }
+            if (!calendar.isMonthlyWindowOpen(today)) {
+                outcome = ClaimOutcome.Expired
                 return@edit
             }
             var current = engine.ensureCurrent(decode(prefs), now)

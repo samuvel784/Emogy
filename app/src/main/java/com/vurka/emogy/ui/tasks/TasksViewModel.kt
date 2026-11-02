@@ -286,7 +286,7 @@ class TasksViewModel(application: Application) : AndroidViewModel(application) {
                 null
             } else {
                 MonthlyMilestoneUi(
-                    available = milestoneReady && !milestoneClaimed,
+                    available = monthlyOpen && milestoneReady && !milestoneClaimed,
                     claimed = milestoneClaimed,
                     coins = TaskRepository.MONTHLY_MILESTONE_REWARD.coins,
                     hints = TaskRepository.MONTHLY_MILESTONE_REWARD.hints,

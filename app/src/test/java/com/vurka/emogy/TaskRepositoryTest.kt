@@ -333,4 +333,52 @@ class TaskRepositoryTest {
 
         assertEquals(true, tomorrow.daily?.key != first.daily?.key)
     }
+
+    @Test
+    fun `monthly task cannot be claimed after deadline`() = runBlocking {
+        val monthStartMillis = millis(2024, 6, 1)
+        val monthStartDay = calendar.epochDayAt(monthStartMillis)
+        now = monthStartMillis + 27 * day + 12 * 3600_000L // Day 28, 12:00 UTC (after deadline)
+
+        val monthlyDef = TaskConfig.all.first { it.period == TaskPeriod.MONTHLY }
+        val monthly = TaskPeriodState(
+            period = TaskPeriod.MONTHLY,
+            key = engine.monthlyKey(calendar.today()),
+            startEpochDay = monthStartDay,
+            instances = listOf(TaskInstance(monthlyDef, progress = monthlyDef.target)),
+        )
+        seed(TaskState(monthly = monthly))
+
+        val outcome = repository.claim(TaskPeriod.MONTHLY, monthlyDef.id)
+        assertEquals(ClaimOutcome.Expired, outcome)
+        assertEquals(0, coins())
+    }
+
+    @Test
+    fun `monthly milestone cannot be claimed after deadline`() = runBlocking {
+        val monthStartMillis = millis(2024, 6, 1)
+        val monthStartDay = calendar.epochDayAt(monthStartMillis)
+        now = monthStartMillis + 27 * day + 12 * 3600_000L // Day 28, 12:00 UTC (after deadline)
+
+        val monthlyDefinitions = TaskConfig.all
+            .filter { it.period == TaskPeriod.MONTHLY }
+            .take(5)
+        val monthly = TaskPeriodState(
+            period = TaskPeriod.MONTHLY,
+            key = engine.monthlyKey(calendar.today()),
+            startEpochDay = monthStartDay,
+            instances = monthlyDefinitions.map { definition ->
+                TaskInstance(
+                    definition = definition,
+                    progress = definition.target,
+                    claimedAtMillis = now - 1_000L,
+                )
+            },
+        )
+        seed(TaskState(monthly = monthly))
+
+        val outcome = repository.claimMonthlyMilestone()
+        assertEquals(ClaimOutcome.Expired, outcome)
+        assertEquals(0, coins())
+    }
 }
