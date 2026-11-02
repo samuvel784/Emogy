@@ -238,7 +238,7 @@ internal fun ProgressionFeedback(
     snackbarHostState: SnackbarHostState,
     onClaimed: (ClaimBurstData) -> Unit,
 ) {
-    val context = LocalContext.current
+    val context = LocalContext.current.applicationContext
     val currentSound by rememberUpdatedState(soundEnabled)
     val nothingMessage = stringResource(R.string.tasks_nothing_to_claim)
     val alreadyMessage = stringResource(R.string.tasks_already_claimed)

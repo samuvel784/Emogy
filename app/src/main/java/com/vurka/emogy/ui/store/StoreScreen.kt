@@ -63,7 +63,7 @@ fun StoreScreen(
     val selectedMatch by viewModel.selectedMatchEffectId.collectAsState()
     val selectedVictory by viewModel.selectedVictoryEffectId.collectAsState()
 
-    val context = LocalContext.current
+    val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
