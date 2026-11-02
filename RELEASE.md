@@ -60,21 +60,24 @@ jarsigner -verify -verbose -certs app\build\outputs\bundle\release\app-release.a
 ## 5. Release blockers (must be resolved by a human)
 
 Nothing in the code blocks a release. The remaining work is account, signing, asset and device work.
+The full walkthrough is in `EMOGY_DEVELOPMENT_AND_RELEASE_GUIDE.md`.
 
-1. **Privacy contact and URL.** `PRIVACY_POLICY.md` contains `<REPLACE_WITH_MONITORED_SUPPORT_EMAIL>`.
-   Replace it with a monitored address before release, host the page at a public HTTPS URL and paste that URL into
-   Play Console. Play requires a working privacy policy URL and may use it to contact you.
-2. **Upload key.** If `my-upload-key.jks` does not exist and the environment variables above are
+1. **Placeholders.** Search for `REPLACE_WITH_` and fill in developer name, support email and
+   governing-law country/state in `docs/*.md` and `app/src/main/res/values/strings.xml`, then run
+   `./gradlew syncLegalDocs`. `verifyReleaseContent` blocks `bundleRelease` until none are left.
+2. **Public legal URL.** Publish `docs/` with GitHub Pages and paste the privacy-policy URL into Play
+   Console. It must load without logging in.
+3. **Upload key.** If `my-upload-key.jks` does not exist and the environment variables above are
    not set, there is no release artifact to upload. This is intentional.
-3. **Store assets.** A 512×512 icon, a 1024×500 feature graphic and at least two phone screenshots
-   (ideally 4–8) are still needed in the Play Console listing.
-4. **Real-device QA.** Install the signed build on a phone and check audio, haptics, TalkBack,
-   rotation, background/resume, a win, both loss types, a replay and “Remove animations”.
-5. **Play Console setup.** Create the app entry and complete the listing, Data safety, Ads,
-   Content rating and Target audience (General / 13+) sections; category Games > Puzzle.
-6. **Testing track.** New personal developer accounts must run closed testing with 12 testers for
-   14 days before production.
-7. **Name check.** Confirm that “Emogy” is available as a store name and does not conflict with
+4. **Store assets.** `store-listing/` has the 512x512 icon and the 1024x500 feature graphic. You still
+   need 2-8 real phone screenshots from your device.
+5. **Real-device QA.** Install the signed build on a phone and run the table in `EMOGY_DEVELOPMENT_AND_RELEASE_GUIDE.md`.
+6. **Play Console setup.** Create the app entry and complete the listing, Data safety, Ads,
+   Content rating and Target audience (13+) sections using `store-listing/LISTING.md`; category
+   Games > Puzzle.
+7. **Testing track.** New personal developer accounts must run closed testing with 12 testers for
+   14 days before production (check the current rule in Play Console).
+8. **Name check.** Confirm that "Emogy" is available as a store name and does not conflict with
    an existing trademark; this cannot be checked offline.
 
 ## 6. Versioning

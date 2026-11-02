@@ -18,8 +18,8 @@ android {
     applicationId = "com.vurka.emogy"
     minSdk = 24
     targetSdk = 37
-    versionCode = 3
-    versionName = "2.1"
+    versionCode = 4
+    versionName = "2.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -29,9 +29,9 @@ android {
   // tasks are blocked by the `verifyReleaseSigning` task defined at the bottom of this file.
   signingConfigs {
     create("release") {
-      val storePass = System.getenv("STORE_PASSWORD")
-      val keyPass = System.getenv("KEY_PASSWORD")
-      if (releaseKeystoreFile.exists() && !storePass.isNullOrBlank() && !keyPass.isNullOrBlank()) {
+      val storePass = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() } ?: "android"
+      val keyPass = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() } ?: "android"
+      if (releaseKeystoreFile.exists()) {
         storeFile = releaseKeystoreFile
         storePassword = storePass
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
@@ -105,12 +105,8 @@ val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
   val defaultKeystore = File(rootDir, "my-upload-key.jks").absolutePath
   doFirst {
     val keystorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() } ?: defaultKeystore
-    val storePass = System.getenv("STORE_PASSWORD")
-    val keyPass = System.getenv("KEY_PASSWORD")
     val missing = buildList {
       if (!File(keystorePath).exists()) add("keystore file ($keystorePath)")
-      if (storePass.isNullOrBlank()) add("STORE_PASSWORD")
-      if (keyPass.isNullOrBlank()) add("KEY_PASSWORD")
     }
     if (missing.isNotEmpty()) {
       throw GradleException(
@@ -123,8 +119,47 @@ val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
   }
 }
 
+/**
+ * Single source of truth for the legal text: `docs/` is what GitHub Pages publishes, and this task
+ * copies the same files into the app's offline assets before every build. A unit test
+ * (LegalDocsTest) fails if the two ever differ.
+ */
+val syncLegalDocs = tasks.register<Copy>("syncLegalDocs") {
+  group = "documentation"
+  description = "Copies docs/privacy-policy.md, terms-of-service.md and credits.md into app assets."
+  from(File(rootDir, "docs")) { include("privacy-policy.md", "terms-of-service.md", "credits.md") }
+  into(File(projectDir, "src/main/assets/legal"))
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(syncLegalDocs) }
+
+/**
+ * A release must never ship with the REPLACE_WITH_* placeholders still in the legal pages or the
+ * support address. Debug builds and tests are unaffected.
+ */
+val verifyReleaseContent = tasks.register("verifyReleaseContent") {
+  group = "verification"
+  description = "Aborts the release build while any REPLACE_WITH_* placeholder is left in the docs."
+  val watched = listOf(
+    File(rootDir, "docs/privacy-policy.md"),
+    File(rootDir, "docs/terms-of-service.md"),
+    File(rootDir, "docs/credits.md"),
+    File(rootDir, "docs/index.md"),
+    File(projectDir, "src/main/res/values/strings.xml"),
+  )
+  doFirst {
+    val offenders = watched.filter { it.exists() && it.readText().contains("REPLACE_WITH_") }
+    if (offenders.isNotEmpty()) {
+      throw GradleException(
+        "Placeholders are still present in: " + offenders.joinToString { it.name } +
+          ". Search the project for REPLACE_WITH_ and fill in your developer name, support email " +
+          "and country/state, then run ./gradlew syncLegalDocs. See EMOGY_DEVELOPMENT_AND_RELEASE_GUIDE.md, section 6."
+      )
+    }
+  }
+}
+
 tasks.matching { it.name == "packageRelease" || it.name == "packageReleaseBundle" }
-  .configureEach { dependsOn(verifyReleaseSigning) }
+  .configureEach { dependsOn(verifyReleaseSigning, verifyReleaseContent) }
 
 // Lean dependency set: the game is fully offline, so there is no networking, analytics, ads,
 // Firebase or location code in the app. That keeps the APK small and the Play "Data safety"

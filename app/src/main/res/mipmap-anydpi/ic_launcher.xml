@@ -10,6 +10,6 @@
     <item
         android:width="62dp"
         android:height="62dp"
-        android:drawable="@drawable/app_logo_1792172025849"
+        android:drawable="@drawable/emogy_logo"
         android:gravity="center" />
 </layer-list>

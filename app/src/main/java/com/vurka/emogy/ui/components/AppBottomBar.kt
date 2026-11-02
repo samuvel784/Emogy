@@ -1,6 +1,9 @@
 package com.vurka.emogy.ui.components
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -13,8 +16,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vurka.emogy.ui.navigation.Screen
 import com.vurka.emogy.ui.navigation.TopLevelDestinations
-import com.vurka.emogy.ui.theme.Chrome
 import com.vurka.emogy.ui.theme.GoldStar
 import com.vurka.emogy.ui.theme.TextMuted
 
@@ -25,21 +28,44 @@ import com.vurka.emogy.ui.theme.TextMuted
 @Composable
 fun AppBottomBar(
     currentRoute: String?,
+    hasTaskClaims: Boolean = false,
+    hasAlbumClaims: Boolean = false,
     onSelect: (String) -> Unit,
 ) {
+    val isLight = MaterialTheme.colorScheme.background.red > 0.5f
+    val unselectedColor = if (isLight) Color(0xFF64748B) else TextMuted
+
     NavigationBar(
-        containerColor = Chrome.TopBar,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
         TopLevelDestinations.tabs.forEach { tab ->
+            val hasBadge = when (tab.route) {
+                Screen.Daily.route -> hasTaskClaims
+                Screen.Album.route -> hasAlbumClaims
+                else -> false
+            }
+
             NavigationBarItem(
                 selected = currentRoute == tab.route,
                 onClick = { if (currentRoute != tab.route) onSelect(tab.route) },
                 icon = {
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = null
-                    )
+                    BadgedBox(
+                        badge = {
+                            if (hasBadge) {
+                                Text(
+                                    text = "🪙",
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.offset(x = 4.dp, y = (-2).dp)
+                                )
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = null
+                        )
+                    }
                 },
                 label = {
                     Text(
@@ -52,9 +78,9 @@ fun AppBottomBar(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = GoldStar,
                     selectedTextColor = GoldStar,
-                    indicatorColor = Color.White.copy(alpha = 0.12f),
-                    unselectedIconColor = TextMuted,
-                    unselectedTextColor = TextMuted
+                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    unselectedIconColor = unselectedColor,
+                    unselectedTextColor = unselectedColor
                 )
             )
         }

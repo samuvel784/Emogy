@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -48,6 +49,7 @@ fun MoreScreen(
     onThemes: () -> Unit,
     onStore: () -> Unit,
     onSettings: () -> Unit,
+    onAbout: () -> Unit = {},
 ) {
     val coins by viewModel.coins.collectAsState()
     val totalStars by viewModel.totalStars.collectAsState()
@@ -61,10 +63,11 @@ fun MoreScreen(
     Scaffold(
         topBar = {
             AppTopBar(title = stringResource(R.string.more_title), onBack = null) {
+                val pillBg = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFFE2E8F0)
                 Row(
                     modifier = Modifier
                         .padding(end = 16.dp)
-                        .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
+                        .background(pillBg, RoundedCornerShape(50))
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -182,6 +185,20 @@ fun MoreScreen(
                     onClick = {
                         SoundManager.playTap(soundEnabled)
                         showHowToPlay = true
+                    }
+                )
+            }
+            item {
+                MoreRow(
+                    icon = Icons.Default.Info,
+                    title = stringResource(R.string.more_about),
+                    subtitle = stringResource(R.string.more_about_sub),
+                    accent = Color(0xFF14B8A6),
+                    testTag = "more_about",
+                    isDark = isDark,
+                    onClick = {
+                        SoundManager.playTap(soundEnabled)
+                        onAbout()
                     }
                 )
             }

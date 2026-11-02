@@ -71,6 +71,20 @@ object CardBackVisuals {
             border = Color(0xFFFDBA74),
             symbol = "🐉"
         )
+        "starlight_oath" -> CardBackVisual(
+            gradient = Brush.linearGradient(
+                colors = if (isDark) listOf(Color(0xFF0F172A), Color(0xFF312E81), Color(0xFF0891B2)) else listOf(Color(0xFF1E3A8A), Color(0xFF7C3AED), Color(0xFF22D3EE))
+            ),
+            border = Color(0xFFA5F3FC),
+            symbol = "🌠"
+        )
+        "eclipse_sovereign" -> CardBackVisual(
+            gradient = Brush.linearGradient(
+                colors = if (isDark) listOf(Color(0xFF111827), Color(0xFF4C1D95), Color(0xFFB45309)) else listOf(Color(0xFF312E81), Color(0xFF7C3AED), Color(0xFFF59E0B))
+            ),
+            border = Color(0xFFFCD34D),
+            symbol = "🌒"
+        )
         else -> CardBackVisual(
             gradient = Brush.linearGradient(
                 colors = if (isDark) {

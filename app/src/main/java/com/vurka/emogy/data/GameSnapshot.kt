@@ -25,6 +25,8 @@ data class GameSnapshot(
     val shuffleCountdownSec: Int,
     val shuffleCount: Int,
     val wasPaused: Boolean,
+    /** Hints used before the snapshot was taken. Missing in v1 saves and defaults to 0. */
+    val hintsUsed: Int = 0,
     val version: Int = GameSnapshotCodec.VERSION,
 ) {
     fun isExpired(nowMillis: Long, windowMillis: Long = RESUME_WINDOW_MILLIS): Boolean =
@@ -46,7 +48,7 @@ const val RESUME_WINDOW_MILLIS: Long = 24L * 60L * 60L * 1000L
  * variation selectors, and is cheap to write on every settled move.
  */
 object GameSnapshotCodec {
-    const val VERSION = 1
+    const val VERSION = 2
 
     fun encode(snapshot: GameSnapshot): String = buildString {
         appendLine("v${snapshot.version}")
@@ -66,6 +68,7 @@ object GameSnapshotCodec {
                 snapshot.shuffleCountdownSec,
                 snapshot.shuffleCount,
                 if (snapshot.wasPaused) 1 else 0,
+                snapshot.hintsUsed,
             ).joinToString("|")
         )
         snapshot.cards.forEach { card ->
@@ -87,7 +90,7 @@ object GameSnapshotCodec {
             if (lines.size < 3) return@runCatching null
 
             val version = lines[0].removePrefix("v").toIntOrNull() ?: return@runCatching null
-            if (version != VERSION) return@runCatching null
+            if (version !in 1..VERSION) return@runCatching null
 
             val head = lines[1].split("|")
             if (head.size != 2) return@runCatching null
@@ -96,9 +99,10 @@ object GameSnapshotCodec {
             if (level !in 1..LevelCatalog.TOTAL_LEVELS) return@runCatching null
 
             val body = lines[2].split("|")
-            if (body.size != 11) return@runCatching null
+            if (body.size != if (version >= 2) 12 else 11) return@runCatching null
             val numbers = body.map { it.toIntOrNull() ?: return@runCatching null }
             val wasPaused = numbers[10] != 0
+            val hintsUsed = if (version >= 2) numbers[11].coerceAtLeast(0) else 0
 
             val cards = lines.drop(3).map { line ->
                 val fields = line.split("|")
@@ -128,6 +132,7 @@ object GameSnapshotCodec {
                 shuffleCountdownSec = numbers[8],
                 shuffleCount = numbers[9],
                 wasPaused = wasPaused,
+                hintsUsed = hintsUsed,
                 version = version,
             )
         }.getOrNull()

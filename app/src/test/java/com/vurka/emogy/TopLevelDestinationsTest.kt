@@ -30,9 +30,10 @@ class TopLevelDestinationsTest {
             Screen.DailyGame.route,
             Screen.Settings.route,
             Screen.Stats.route,
-            Screen.Achievements.route,
+            Screen.Tasks.route,
             Screen.Themes.route,
             Screen.Store.route,
+            Screen.Legal.route,
             null,
         ).forEach { route ->
             assertFalse("$route should not show the bar", TopLevelDestinations.showsBottomBar(route))

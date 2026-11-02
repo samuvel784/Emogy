@@ -3,7 +3,9 @@ package com.vurka.emogy.viewmodel
 import com.vurka.emogy.data.DailyOutcome
 import com.vurka.emogy.data.GameSnapshot
 import com.vurka.emogy.data.LevelRecordResult
+import com.vurka.emogy.data.tasks.LevelCompletedEvent
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /** Wall clock used only for timestamps and snapshot expiry, so tests never depend on the device. */
 fun interface GameClock {
@@ -39,18 +41,34 @@ interface GameFeedback {
 
 /**
  * Settings the game needs while a run is active.
- *
- * [zenMode] is deliberately a cold [Flow]: its first emission is the persisted value. Reading a
- * StateFlow with an artificial `false` initial value is what let a Zen run start with finite hints
- * before DataStore had answered.
  */
 interface GameSettings {
     val soundEnabled: Flow<Boolean>
     val hapticsEnabled: Flow<Boolean>
-    val zenMode: Flow<Boolean>
 
     /** Opt-in Assist mode: a heart button reveals one matching pair on request. */
     val assistMode: Flow<Boolean>
+}
+
+/** Purchased hint inventory. A token is spent only by [tryConsume], which is atomic. */
+interface HintWallet {
+    val tokens: Flow<Int>
+    suspend fun tryConsume(): Boolean
+}
+
+/** Used by unit tests and by any screen that runs without a wallet. */
+object NoHintWallet : HintWallet {
+    override val tokens: Flow<Int> = flowOf(0)
+    override suspend fun tryConsume(): Boolean = false
+}
+
+/** The single authoritative sink for task progress. Never called from a composable. */
+fun interface GameplayTracker {
+    suspend fun record(event: LevelCompletedEvent)
+}
+
+object NoGameplayTracker : GameplayTracker {
+    override suspend fun record(event: LevelCompletedEvent) = Unit
 }
 
 /** The progress writes a finished run needs. [ProgressRepository] is the production implementation. */

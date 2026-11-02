@@ -60,13 +60,10 @@ object DailyChallenge {
         locale: Locale = Locale.getDefault(),
     ): String {
         val dayStart = epochDay * MILLIS_PER_DAY
-        var localWallMillis = dayStart + timeZone.getOffset(dayStart)
-        if (localWallMillis < dayStart) localWallMillis += MILLIS_PER_DAY
-        if (localWallMillis >= dayStart + MILLIS_PER_DAY) localWallMillis -= MILLIS_PER_DAY
-
+        val wallMillis = dayStart - timeZone.getOffset(dayStart)
         return DateFormat.getDateInstance(DateFormat.FULL, locale).apply {
-            this.timeZone = TimeZone.getTimeZone("UTC")
-        }.format(Date(localWallMillis))
+            this.timeZone = timeZone
+        }.format(Date(wallMillis))
     }
 
     /**

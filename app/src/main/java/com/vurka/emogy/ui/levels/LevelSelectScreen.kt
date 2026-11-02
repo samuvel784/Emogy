@@ -66,7 +66,7 @@ import com.vurka.emogy.data.EmojiCatalog
 import com.vurka.emogy.data.LevelCatalog
 import com.vurka.emogy.data.WorldInfo
 import com.vurka.emogy.model.LevelConfig
-import com.vurka.emogy.ui.components.AnimatedBackdrop
+import com.vurka.emogy.ui.components.ConstantBackdrop
 import com.vurka.emogy.ui.components.bob
 import com.vurka.emogy.ui.components.pressBounce
 import com.vurka.emogy.ui.components.pulse
@@ -133,7 +133,6 @@ fun LevelSelectScreen(
     val lastPlayed by viewModel.lastPlayedLevel.collectAsStateWithLifecycle()
     val starsMap by viewModel.starsMap.collectAsStateWithLifecycle()
     val totalStars by viewModel.totalStars.collectAsStateWithLifecycle()
-    val zen by viewModel.isZenMode.collectAsStateWithLifecycle()
     val soundOn by viewModel.soundEnabled.collectAsStateWithLifecycle()
 
     val rows = mapRows
@@ -200,7 +199,7 @@ fun LevelSelectScreen(
             .fillMaxSize()
             .drawBehind { drawRect(Brush.verticalGradient(listOf(topColor, bottomColor))) }
     ) {
-        AnimatedBackdrop(brush = SolidColor(Color.Transparent), emojis = backdropEmojis, count = 10, alpha = 0.12f)
+        ConstantBackdrop(brush = SolidColor(Color.Transparent), emojis = backdropEmojis, count = 10, alpha = 0.12f)
 
         LazyColumn(
             state = listState,
@@ -358,7 +357,7 @@ fun LevelSelectScreen(
             stars = starsMap[selectedLevel] ?: 0,
             bestMoves = bestMoves,
             bestTime = bestTime,
-            zen = zen,
+            zen = false,
             onPlay = {
                 SoundManager.playTap(soundOn)
                 onLevelSelected(selectedLevel)

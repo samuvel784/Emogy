@@ -1,10 +1,46 @@
+# Emogy v2.2 - release readiness
+
+## About & Legal (new)
+* **More > About & Legal** shows the app version, and offline copies of the **Privacy Policy**,
+  **Terms of Service** and **Credits & Licences**, rendered by a small pure-Kotlin Markdown reader
+  (`LegalMarkdown`, unit-tested). Share, Rate on Google Play and Contact support hand off to other
+  apps; none needs the INTERNET permission.
+* `docs/` is the single source of truth for the legal text. `syncLegalDocs` copies it into
+  `app/src/main/assets/legal` before every build; `LegalDocsTest` fails if the two differ.
+* `docs/_config.yml` makes the same files publishable with GitHub Pages.
+* The privacy policy now also covers rewards, hints, owned cosmetics, task and login state, the
+  generated audio cache and the Reset behaviour exactly as implemented.
+* New `Terms of Service` and `Credits` pages.
+
+## Release safety
+* `verifyReleaseContent` blocks `packageRelease` / `bundleRelease` while any `REPLACE_WITH_*`
+  placeholder remains in the legal pages or the support address.
+* `LegalDocsTest` also guards that the manifest requests only `VIBRATE` and that both DataStore
+  files are covered by the backup rules, so the privacy policy cannot silently become untrue.
+* Version bumped to `versionCode 4` / `versionName 2.2`.
+
+## Cleanup and project hygiene
+* Removed unused code: `Achievement`, `PlayerStats`, `GameResult` and the unused `Screen.LevelSelect` route.
+* Removed leftover AI-Studio files (`metadata.json`, `.env.example`); moved the logo SVG to `store-listing/brand/`.
+* Stronger `.gitignore` (signing material, APK/AAB, IDE files), new `.gitattributes`, optional
+  `.github/workflows/android-ci.yml` (written, not executed).
+* New `LegalScreenTest` (Compose UI on Robolectric): version line, the three documents open offline,
+  Back returns to the list. Written but not executed in the authoring environment.
+
+## Store pack
+* `store-listing/`: 512x512 icon, 1024x500 feature graphic, listing text, content-rating and Data
+  safety answers, screenshot shot list.
+* `EMOGY_DEVELOPMENT_AND_RELEASE_GUIDE.md`: end-to-end guide for building, testing, signing, publishing to Google Play and to GitHub.
+
+---
+
 # Emogy v2.1 – what changed
 
 ## Branding update
 * The user-facing public name is **Emogy** everywhere: launcher label, Home wordmark, Welcome sheet,
   docs and store metadata.
 * The application ID is now `com.vurka.emogy` and the Kotlin namespace matches it. This is a new
-  install identity: a device with a `com.vurka.memoji` build does not receive this as an update and
+  install identity: a device with a `com.vurka.emogy` build does not receive this as an update and
   its local progress is not migrated. DataStore names and saved-data keys are unchanged, so progress
   still survives backup/restore within the new package.
 

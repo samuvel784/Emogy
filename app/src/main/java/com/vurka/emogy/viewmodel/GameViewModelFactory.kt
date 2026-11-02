@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.vurka.emogy.data.ProgressRepository
 import com.vurka.emogy.data.ThemeRepository
+import com.vurka.emogy.data.tasks.TaskRepository
 
 class GameViewModelFactory(
     application: Application,
@@ -14,6 +15,7 @@ class GameViewModelFactory(
 ) : ViewModelProvider.Factory {
     private val progress = ProgressRepository(application)
     private val themeRepository = ThemeRepository(application)
+    private val taskRepository = TaskRepository(application)
     private val feedback = AndroidGameFeedback(application)
 
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -29,6 +31,12 @@ class GameViewModelFactory(
                 snapshots = RepositoryGameSnapshotStore(progress),
                 isDaily = isDaily,
                 dailyEpochDay = dailyEpochDay,
+                cardThemeIdFlow = themeRepository.selectedCardThemeId,
+                boardThemeIdFlow = themeRepository.selectedBoardThemeId,
+                matchEffectIdFlow = themeRepository.selectedMatchEffectId,
+                victoryEffectIdFlow = themeRepository.selectedVictoryEffectId,
+                hints = RepositoryHintWallet(progress),
+                tasks = RepositoryGameplayTracker(taskRepository),
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

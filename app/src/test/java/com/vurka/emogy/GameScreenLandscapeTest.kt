@@ -41,7 +41,7 @@ class GameScreenLandscapeTest {
         val viewModel = GameViewModel(
             levelNumber = 1000, // 20 pairs, the largest deck
             progress = FakeProgress(),
-            settings = FakeSettings(initialZen = false),
+            settings = FakeSettings(),
             feedback = FakeFeedback(),
             clock = FakeClock(),
             themeIdFlow = flowOf("default"),

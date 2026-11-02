@@ -6,7 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
@@ -49,8 +49,7 @@ class GameScreenBackStackTest {
                         onBackPressed = {},
                         onNextLevel = {},
                         onWorldMap = {},
-                        onHome = {},
-                    )
+                    ) {}
                 }
             }
         }
@@ -92,17 +91,16 @@ class GameScreenBackStackTest {
                         onBackPressed = {},
                         onNextLevel = {},
                         onWorldMap = {},
-                        onHome = {},
-                    )
+                    ) {}
                 }
             }
         }
         compose.waitForIdle()
 
         val firstCardTag = "card_${viewModel.state.value.cards.first().id}"
-        val bounds = compose.onNodeWithTag(firstCardTag).getUnclippedBoundsInRoot()
-        val width = bounds.right.value - bounds.left.value
-        val height = bounds.bottom.value - bounds.top.value
+        val (left, top, right, bottom) = compose.onNodeWithTag(firstCardTag).getUnclippedBoundsInRoot()
+        val width = right.value - left.value
+        val height = bottom.value - top.value
         assertEquals(
             "cards must stay square",
             width,
@@ -124,8 +122,7 @@ class GameScreenBackStackTest {
                         onBackPressed = {},
                         onNextLevel = {},
                         onWorldMap = {},
-                        onHome = {},
-                    )
+                    ) {}
                 }
             }
         }
@@ -146,8 +143,7 @@ class GameScreenBackStackTest {
                         onBackPressed = {},
                         onNextLevel = {},
                         onWorldMap = {},
-                        onHome = {},
-                    )
+                    ) {}
                 }
             }
         }
@@ -167,8 +163,7 @@ class GameScreenBackStackTest {
                         onBackPressed = {},
                         onNextLevel = {},
                         onWorldMap = {},
-                        onHome = {},
-                    )
+                    ) {}
                 }
             }
         }
@@ -182,7 +177,7 @@ class GameScreenBackStackTest {
         val viewModel = GameViewModel(
             levelNumber = level,
             progress = FakeProgress(),
-            settings = FakeSettings(initialZen = false, initialAssist = assist),
+            settings = FakeSettings(initialAssist = assist),
             feedback = FakeFeedback(),
             clock = FakeClock(),
             themeIdFlow = flowOf("default"),

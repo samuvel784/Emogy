@@ -4,14 +4,14 @@
     <!-- App -->
     <string name="app_name">Emogy</string>
     <string name="app_subtitle">The Memory Game</string>
-    <string name="offline_badge">Offline • No ads • No tracking</string>
+    <string name="offline_badge">Emogy • The Memory Game</string>
     <string name="cd_back">Back</string>
     <string name="cd_close">Close</string>
 
     <!-- Bottom navigation -->
     <string name="nav_home">Home</string>
     <string name="nav_map">Map</string>
-    <string name="nav_daily">Daily</string>
+    <string name="nav_daily">Task</string>
     <string name="nav_album">Album</string>
     <string name="nav_more">More</string>
 
@@ -41,7 +41,7 @@
     <string name="howto_daily_title">Daily Challenge</string>
     <string name="howto_daily_body">A new 8-pair board every local day. Finish it once to earn 25 coins; replays only improve your daily best time and moves.</string>
     <string name="howto_album_title">Emoji Album</string>
-    <string name="howto_album_body">Every pair you match unlocks its emoji in the offline album. Track your collection by category with no purchases or online account.</string>
+    <string name="howto_album_body">Every pair you match unlocks its emoji in the album. Track your collection by category with no purchases or online account.</string>
     <string name="howto_themes_title">Card-Back Themes</string>
     <string name="howto_themes_body">Complete levels or spend coins to unlock card backs. Preview them live in the Themes menu.</string>
     <string name="howto_zen_title">Zen Mode</string>
@@ -120,7 +120,6 @@
     <string name="settings_assist_desc">Tap the heart in a level to reveal one matching pair. Works on every level, including bosses. No penalty.</string>
     <string name="settings_theme_mode">Theme Mode</string>
     <string name="settings_theme_desc">Red &amp; Blue Game Palette</string>
-    <string name="theme_default">Default</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="settings_how_to_play">How to Play Guide</string>
@@ -170,6 +169,7 @@
     <string name="game_world_map">World Map</string>
     <string name="game_home">Home</string>
     <string name="cd_hint">Hint</string>
+    <string name="game_no_hints_msg">Not enough hints available!</string>
     <string name="cd_assist">Assist: reveal one matching pair</string>
     <string name="cd_pause">Pause</string>
     <string name="cd_restart">Restart</string>
@@ -243,7 +243,7 @@
     <string name="daily_completed">✅ Completed today</string>
     <string name="daily_ready">Today\'s board is ready</string>
     <string name="daily_completed_body">You can replay it for a better time, but the %1$d-coin reward is once a day.</string>
-    <string name="daily_ready_body">A fixed %1$d-pair board for everyone. Finish it once today to earn %2$d coins.</string>
+    <string name="daily_ready_body">A fixed %1$d-pair board for today. Finish it once today to earn %2$d coins.</string>
     <string name="daily_pairs">%1$d pairs</string>
     <string name="daily_time">%1$ds</string>
     <string name="daily_hints">%1$d hints</string>
@@ -252,8 +252,14 @@
     <string name="daily_completed_count">Completed</string>
     <string name="daily_play_again">PLAY AGAIN</string>
     <string name="daily_play">PLAY TODAY\'S BOARD</string>
-    <string name="daily_body">The same board is dealt to everyone on the same day. It resets at local midnight, and it works completely offline.</string>
+    <string name="daily_body">A deterministic daily board that resets at local midnight, working completely offline.</string>
     <string name="daily_zen_note">Zen mode still applies if you prefer no timer.</string>
+    <plurals name="daily_board_streak_days">
+        <item quantity="one">Board streak: %1$d day</item>
+        <item quantity="other">Board streak: %1$d days</item>
+    </plurals>
+    <string name="daily_missions_title">Missions &amp; Rewards</string>
+    <string name="daily_missions_sub">Weekly login, login streak and daily, weekly and monthly missions</string>
 
     <!-- Emoji album -->
     <string name="album_title">Emoji Album</string>
@@ -267,19 +273,21 @@
     <string name="album_locked">Locked emoji</string>
     <string name="album_claimed">Claimed by matching this pair.</string>
     <string name="album_locked_body">Match this pair in any level or the Daily Challenge to add it to your album.</string>
+    <string name="album_ready_to_claim">CLAIM +10 🪙</string>
+    <string name="album_claim_all">CLAIM ALL (+%1$d 🪙)</string>
     <string name="action_nice">Nice</string>
     <string name="action_got_it">Got it</string>
 
     <!-- More -->
     <string name="more_title">More</string>
     <string name="more_progress">PROGRESS</string>
-    <string name="more_rewards">Rewards &amp; Quests</string>
-    <string name="more_rewards_sub">Claim coin bounties</string>
+    <string name="more_rewards">Tasks &amp; Rewards</string>
+    <string name="more_rewards_sub">Daily, weekly and monthly missions</string>
     <string name="more_stats">Statistics</string>
     <string name="more_stats_sub">Flips, perfect games, daily streak</string>
     <string name="more_customise">CUSTOMISE</string>
-    <string name="more_themes">Card-Back Themes</string>
-    <string name="more_themes_sub">Preview and choose a card back</string>
+    <string name="more_themes">Cosmetics</string>
+    <string name="more_themes_sub">Card backs, faces, boards and effects</string>
     <string name="more_store">Coin Store</string>
     <string name="more_store_sub">Spend the coins you earn</string>
     <string name="more_app">APP</string>
@@ -320,21 +328,133 @@
     <string name="rewards_progress_value">%1$d / %2$d</string>
     <string name="cd_claimed">Claimed</string>
 
-    <!-- Store -->
-    <string name="store_title">Item Store</string>
-    <string name="store_not_enough_title">Not Enough Coins!</string>
-    <string name="store_not_enough_body">Complete Daily, Weekly, and Monthly tasks to earn more coins!</string>
-    <string name="store_heading">🛒 Coin Store</string>
-    <string name="store_heading_body">Spend your hard-earned coins to unlock exclusive themes!</string>
-    <string name="store_owned">Owned</string>
-    <string name="store_price">🪙 %1$d</string>
-    <string name="cd_owned">Owned</string>
+    <!-- Tasks & login -->
+    <string name="tasks_title">Tasks &amp; Rewards</string>
+    <string name="tasks_daily_title">Daily Tasks</string>
+    <string name="tasks_daily_subtitle">Resets at midnight · %1$s</string>
+    <string name="tasks_weekly_title">Weekly Tasks</string>
+    <string name="tasks_weekly_subtitle">Resets Sunday 00:00</string>
+    <string name="tasks_monthly_title">Monthly Challenges</string>
+    <string name="tasks_monthly_subtitle">Ends %1$s · %2$s</string>
+    <string name="tasks_monthly_subtitle_closed">Progress ended %1$s</string>
+    <plurals name="tasks_monthly_days_left">
+        <item quantity="one">%1$d day left</item>
+        <item quantity="other">%1$d days left</item>
+    </plurals>
+    <string name="tasks_login_title">Weekly Login</string>
+    <string name="tasks_login_sub">One reward per day · %1$s</string>
+    <string name="tasks_login_claim">Claim today: 🪙 %1$d</string>
+    <string name="tasks_login_claim_hints">Claim today: 🪙 %1$d + 💡 %2$d</string>
+    <string name="tasks_login_claimed_today">Today\'s reward is claimed</string>
+    <string name="tasks_login_unavailable">Today\'s slot is not available</string>
+    <string name="tasks_login_no_slot">No login slot for today</string>
+    <string name="tasks_streak_title">30-Day Login Streak</string>
+    <string name="tasks_streak_value">%1$d / %2$d days</string>
+    <string name="tasks_streak_body">Consecutive local calendar days. Weekly and monthly resets never touch it.</string>
+    <string name="tasks_streak_reward">Day 30 reward: Starlight Oath card back</string>
+    <string name="tasks_streak_granted">Starlight Oath is unlocked</string>
+    <string name="tasks_claim_all">Claim all (%1$d)</string>
+    <string name="tasks_claim">Claim</string>
+    <string name="tasks_claimed">Claimed</string>
+    <string name="tasks_in_progress">In progress</string>
+    <string name="tasks_progress">%1$d / %2$d</string>
+    <string name="tasks_reward_coins">🪙 %1$d</string>
+    <string name="tasks_reward_hints">💡 %1$d</string>
+    <string name="tasks_difficulty_easy">EASY</string>
+    <string name="tasks_difficulty_medium">MEDIUM</string>
+    <string name="tasks_difficulty_hard">HARD</string>
+    <string name="tasks_all_done">All missions claimed in this cycle</string>
+    <string name="tasks_empty">No missions generated for this cycle.</string>
+    <string name="tasks_monthly_closed_title">Progress window closed</string>
+    <string name="tasks_monthly_closed">New progress stopped on %1$s. Finished missions stay claimable until next month begins.</string>
+    <string name="tasks_milestone_title">Monthly Milestone</string>
+    <string name="tasks_milestone_body">Claim all five monthly challenges to unlock the Eclipse Sovereign card back, 3,000 coins and 5 hints.</string>
+    <string name="tasks_milestone_claim_value">Claim 🪙 %1$d + 💡 %2$d + card back</string>
+    <string name="tasks_milestone_claimed">Milestone claimed</string>
+    <string name="tasks_milestone_locked">Claim every monthly challenge first</string>
+    <string name="tasks_clock_warning">Your device date moved backwards. Rewards stay locked until the clock catches up.</string>
+    <string name="tasks_claimed_toast">Claimed 🪙 %1$d and 💡 %2$d</string>
+    <string name="tasks_nothing_to_claim">Nothing to claim yet</string>
+    <string name="tasks_already_claimed">That reward was already claimed</string>
+    <string name="tasks_expired">That mission belongs to an earlier cycle</string>
+    <string name="tasks_clock_toast">Date check failed — no reward granted</string>
+    <string name="tasks_login_already">Today\'s login reward is already claimed</string>
+    <string name="cd_task_progress">Task progress</string>
+    <string name="cd_login_slot">%1$s login reward: %2$d coins and %3$d hints</string>
 
-    <!-- Themes -->
-    <string name="themes_title">Card-Back Themes</string>
+    <!-- Store -->
+    <string name="store_title">Coin Store</string>
+    <string name="store_not_enough_title">Not Enough Coins!</string>
+    <string name="store_not_enough_body">Complete Daily, Weekly and Monthly tasks to earn more coins.</string>
+    <string name="store_tab_hints">Hints</string>
+    <string name="store_tab_card_themes">Card Themes</string>
+    <string name="store_tab_card_backs">Card Backs</string>
+    <string name="store_tab_effects">Effects</string>
+    <string name="store_tab_bundles">Bundles</string>
+    <string name="store_hints_title">Hint Packs</string>
+    <string name="store_hints_body">Hints are stored in your inventory and spent only when you use one, on any level.</string>
+    <string name="store_hint_balance">You own %1$d hints</string>
+    <string name="store_hint_balance_sub">Bought hints work on boss levels too.</string>
+    <string name="store_backs_title">Card Backs</string>
+    <string name="store_backs_body">Change the back of every card on the board.</string>
+    <string name="store_faces_title">Card Themes</string>
+    <string name="store_faces_body">Change how revealed cards look when you flip them.</string>
+    <string name="store_effects_title">Visual Effects</string>
+    <string name="store_effects_body">Boards, match sparkle and the victory celebration.</string>
+    <string name="store_group_boards">Board backgrounds</string>
+    <string name="store_group_sparkle">Match sparkle</string>
+    <string name="store_group_victory">Victory celebration</string>
+    <string name="store_bundles_title">Bundles</string>
+    <string name="store_bundles_body">A bigger pack for players who use hints often.</string>
+    <string name="store_owned">Owned</string>
+    <string name="store_equip">Equip</string>
+    <string name="store_equipped">Equipped</string>
+    <string name="store_price">🪙 %1$d</string>
+    <string name="store_reward_only_hint">Reward only — earn it from tasks.</string>
+    <string name="store_milestone_note">Or unlock free at %1$d completed levels</string>
+    <string name="store_purchase_success">Unlocked %1$s</string>
+    <string name="store_purchase_hints">Added %1$d hints</string>
+    <string name="store_purchase_owned">You already own that</string>
+    <string name="store_purchase_unknown">That item is unavailable</string>
+
+    <!-- Cosmetics -->
+    <string name="themes_title">Cosmetics</string>
     <string name="themes_locked_progress">%1$d/%2$d levels</string>
     <string name="themes_locked">🔒 %1$s</string>
+    <string name="themes_section_backs">Card Backs</string>
+    <string name="themes_section_faces">Card Themes</string>
+    <string name="themes_section_boards">Board Backgrounds</string>
+    <string name="themes_section_sparkle">Match Sparkle</string>
+    <string name="themes_section_victory">Victory Effects</string>
+    <string name="themes_owned">Owned</string>
+    <string name="themes_equipped">Equipped</string>
+    <string name="themes_shop_hint">Buy more in the Coin Store.</string>
     <string name="cd_selected">Selected</string>
     <string name="cd_locked">Locked</string>
+
+    <!-- About & Legal -->
+    <string name="more_about">About &amp; Legal</string>
+    <string name="more_about_sub">Privacy, terms, credits and support</string>
+    <string name="legal_title">About &amp; Legal</string>
+    <string name="legal_version">Version %1$s (build %2$d)</string>
+    <string name="legal_section_documents">DOCUMENTS</string>
+    <string name="legal_section_community">COMMUNITY</string>
+    <string name="legal_privacy">Privacy Policy</string>
+    <string name="legal_privacy_sub">What the app stores on your device</string>
+    <string name="legal_terms">Terms of Service</string>
+    <string name="legal_terms_sub">The rules for using Emogy</string>
+    <string name="legal_credits">Credits &amp; Licences</string>
+    <string name="legal_credits_sub">Audio, emoji and open-source software</string>
+    <string name="legal_rate">Rate on Google Play</string>
+    <string name="legal_rate_sub">Enjoying Emogy? A review helps a lot</string>
+    <string name="legal_share">Share Emogy</string>
+    <string name="legal_share_sub">Send the game to a friend</string>
+    <string name="legal_contact">Contact support</string>
+    <string name="legal_contact_sub">Questions, bugs or ideas</string>
+    <string name="legal_share_text">Try Emogy, a calm emoji memory game with 1,000 levels: %1$s</string>
+    <string name="legal_contact_subject">%1$s %2$s support</string>
+    <string name="legal_load_error">This document could not be opened. Please reinstall the app or contact support.</string>
+    <!-- Replace before release. The release build refuses to package while this placeholder remains. -->
+    <string name="support_email" translatable="false">support@vurka.com</string>
 
 </resources>

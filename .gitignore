@@ -1,28 +1,38 @@
-# Gradle
+# ---- Gradle / Kotlin build output ----
 .gradle/
 .kotlin/
 build/
 /app/build/
 !gradle/wrapper/gradle-wrapper.jar
 
-# Android / IDE
+# ---- Android Studio / IDE ----
 local.properties
 .idea/
 *.iml
 captures/
 .externalNativeBuild/
 .cxx/
+*.hprof
 
-# Tooling
-.aistudio/
-
-# Signing (keys must never be committed)
+# ---- Signing material: NEVER commit these ----
 *.jks
 *.keystore
+*.p12
+keystore.properties
+signing.properties
 debug.keystore
 my-upload-key.jks
 .env
 
-# OS
+# ---- Build artifacts you upload to Play, not to Git ----
+*.apk
+*.aab
+*.aar
+mapping.txt
+/release/
+
+# ---- Tooling / OS ----
+.aistudio/
+*.log
 .DS_Store
 Thumbs.db

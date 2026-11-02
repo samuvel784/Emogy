@@ -1,7 +1,9 @@
 package com.vurka.emogy.ui.album
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -35,18 +37,24 @@ import com.vurka.emogy.util.SoundManager
 import com.vurka.emogy.viewmodel.LevelSelectionViewModel
 
 /**
- * The offline sticker book. Matching a pair in any level or the Daily Challenge unlocks that
- * emoji; there is nothing to buy and nothing leaves the device.
+ * The offline sticker book. Matching a pair in any level or the Daily Challenge discovers that
+ * emoji; claiming it awards coins and unlocks it completely in your album.
  */
 @Composable
 fun AlbumScreen(
     viewModel: LevelSelectionViewModel,
 ) {
     val collected by viewModel.collectedEmojis.collectAsState()
+    val claimed by viewModel.claimedAlbumEmojis.collectAsState()
     val soundEnabled by viewModel.soundEnabled.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-    val album = remember(collected) {
-        AlbumProgressCalculator.calculate(EmojiCatalog.items, collected)
+
+    val album = remember(collected, claimed) {
+        AlbumProgressCalculator.calculate(
+            catalog = EmojiCatalog.items,
+            collectedIds = collected,
+            claimedIds = claimed,
+        )
     }
     var selected by remember { mutableStateOf<AlbumEntryProgress?>(null) }
 
@@ -54,6 +62,10 @@ fun AlbumScreen(
         AlbumEntryDialog(
             entry = entry,
             isDark = isDark,
+            onClaim = {
+                viewModel.claimAlbumEmoji(entry.entry.id)
+                selected = null
+            },
             onDismiss = { selected = null },
         )
     }
@@ -61,10 +73,11 @@ fun AlbumScreen(
     Scaffold(
         topBar = {
             AppTopBar(title = stringResource(R.string.album_title), onBack = null) {
+                val pillBg = if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFFE2E8F0)
                 Row(
                     modifier = Modifier
                         .padding(end = 16.dp)
-                        .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
+                        .background(pillBg, RoundedCornerShape(50))
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -80,11 +93,10 @@ fun AlbumScreen(
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
-        // The app-level scaffold already reserves room for the bottom navigation bar.
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 58.dp),
+            columns = GridCells.Adaptive(minSize = 64.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -94,12 +106,32 @@ fun AlbumScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "album_summary") {
-                AlbumSummary(album = album, isDark = isDark)
+                AlbumSummary(
+                    album = album,
+                    isDark = isDark,
+                    onClaimAll = {
+                        SoundManager.playTap(soundEnabled)
+                        val claimableIds = album.categories
+                            .flatMap { it.entries }
+                            .filter { it.isReadyToClaim }
+                            .mapTo(HashSet()) { it.entry.id }
+                        viewModel.claimAllAlbumEmojis(claimableIds)
+                    }
+                )
             }
 
             album.categories.forEach { category ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "album_header_${category.name}") {
-                    CategoryHeader(category = category, isDark = isDark)
+                    val isCategoryClaimed by viewModel.isCategoryRewardClaimed(category.name).collectAsState(initial = false)
+                    CategoryHeader(
+                        category = category,
+                        isDark = isDark,
+                        isCategoryClaimed = isCategoryClaimed,
+                        onClaimCategory = {
+                            SoundManager.playTap(soundEnabled)
+                            viewModel.claimCategoryReward(category.name, category.rewardCoins)
+                        }
+                    )
                 }
                 items(
                     items = category.entries,
@@ -110,7 +142,11 @@ fun AlbumScreen(
                         isDark = isDark,
                         onClick = {
                             SoundManager.playTap(soundEnabled)
-                            selected = entry
+                            if (entry.isReadyToClaim) {
+                                viewModel.claimAlbumEmoji(entry.entry.id)
+                            } else {
+                                selected = entry
+                            }
                         }
                     )
                 }
@@ -132,7 +168,11 @@ fun AlbumScreen(
 }
 
 @Composable
-private fun AlbumSummary(album: AlbumProgress, isDark: Boolean) {
+private fun AlbumSummary(
+    album: AlbumProgress,
+    isDark: Boolean,
+    onClaimAll: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -192,12 +232,35 @@ private fun AlbumSummary(album: AlbumProgress, isDark: Boolean) {
                 fontSize = 12.sp,
                 color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
             )
+
+            AnimatedVisibility(visible = album.readyToClaimCount > 0) {
+                Button(
+                    onClick = onClaimAll,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldStar)
+                ) {
+                    Text(
+                        text = stringResource(R.string.album_claim_all, album.readyToClaimCount * 10),
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.sp
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun CategoryHeader(category: AlbumCategoryProgress, isDark: Boolean) {
+private fun CategoryHeader(
+    category: AlbumCategoryProgress,
+    isDark: Boolean,
+    isCategoryClaimed: Boolean,
+    onClaimCategory: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -215,16 +278,29 @@ private fun CategoryHeader(category: AlbumCategoryProgress, isDark: Boolean) {
             Text("✓", fontSize = 15.sp, fontWeight = FontWeight.Black, color = EmeraldGreen)
         }
         Spacer(Modifier.weight(1f))
-        Text(
-            text = "${category.collected}/${category.total}",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = when {
-                category.isComplete -> EmeraldGreen
-                isDark -> Color(0xFF94A3B8)
-                else -> Color(0xFF64748B)
+
+        if (category.isComplete && !isCategoryClaimed) {
+            Button(
+                onClick = onClaimCategory,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = GoldStar),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Text("CLAIM +${category.rewardCoins} 🪙", color = Color(0xFF0F172A), fontWeight = FontWeight.Black, fontSize = 11.sp)
             }
-        )
+        } else {
+            Text(
+                text = "${category.collected}/${category.total}",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    category.isComplete -> EmeraldGreen
+                    isDark -> Color(0xFF94A3B8)
+                    else -> Color(0xFF64748B)
+                }
+            )
+        }
     }
 }
 
@@ -234,19 +310,28 @@ private fun AlbumTile(
     isDark: Boolean,
     onClick: () -> Unit,
 ) {
-    val collected = entry.isCollected
+    val readyToClaim = entry.isReadyToClaim
+    val isClaimed = entry.isClaimed
     val shape = RoundedCornerShape(14.dp)
+
     Box(
         modifier = Modifier
             .aspectRatio(1f)
             .clip(shape)
             .background(
                 when {
-                    collected && isDark -> Color(0xFF24325B)
-                    collected -> Color.White
+                    readyToClaim && isDark -> Color(0xFF1E293B)
+                    readyToClaim -> Color(0xFFFFFBEB)
+                    isClaimed && isDark -> Color(0xFF24325B)
+                    isClaimed -> Color.White
                     isDark -> Color(0xFF151D33)
                     else -> Color(0xFFE8EDF5)
                 }
+            )
+            .then(
+                if (readyToClaim) {
+                    Modifier.border(2.dp, GoldStar, shape)
+                } else Modifier
             )
             .clickable(onClick = onClick)
             .testTag("album_tile_${entry.entry.id}"),
@@ -254,10 +339,27 @@ private fun AlbumTile(
     ) {
         Text(
             text = entry.entry.emoji,
-            fontSize = 27.sp,
-            modifier = Modifier.alpha(if (collected) 1f else 0.2f)
+            fontSize = 26.sp,
+            modifier = Modifier.alpha(if (isClaimed || readyToClaim) 1f else 0.2f)
         )
-        if (!collected) {
+
+        if (readyToClaim) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(GoldStar)
+                    .padding(vertical = 2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+10 🪙",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF0F172A)
+                )
+            }
+        } else if (!isClaimed) {
             Text(
                 text = "🔒",
                 fontSize = 9.sp,
@@ -274,6 +376,7 @@ private fun AlbumTile(
 private fun AlbumEntryDialog(
     entry: AlbumEntryProgress,
     isDark: Boolean,
+    onClaim: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -281,7 +384,13 @@ private fun AlbumEntryDialog(
         icon = { Text(entry.entry.emoji, fontSize = 46.sp) },
         title = {
             Text(
-                text = if (entry.isCollected) entry.entry.name else stringResource(R.string.album_locked),
+                text = if (entry.isClaimed) {
+                    entry.entry.name
+                } else if (entry.isReadyToClaim) {
+                    stringResource(R.string.album_ready_to_claim)
+                } else {
+                    stringResource(R.string.album_locked)
+                },
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -292,7 +401,7 @@ private fun AlbumEntryDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (entry.isCollected) {
+                if (entry.isClaimed) {
                     Text(
                         text = entry.entry.category,
                         fontSize = 13.sp,
@@ -305,6 +414,14 @@ private fun AlbumEntryDialog(
                         textAlign = TextAlign.Center,
                         color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
                     )
+                } else if (entry.isReadyToClaim) {
+                    Text(
+                        text = "Claim +10 coins to unlock ${entry.entry.name} completely!",
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GoldStar
+                    )
                 } else {
                     Text(
                         text = stringResource(R.string.album_locked_body),
@@ -316,11 +433,20 @@ private fun AlbumEntryDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    if (entry.isCollected) stringResource(R.string.action_nice) else stringResource(R.string.action_got_it),
-                    fontWeight = FontWeight.Bold
-                )
+            if (entry.isReadyToClaim) {
+                Button(
+                    onClick = onClaim,
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldStar)
+                ) {
+                    Text("CLAIM +10 🪙", color = Color(0xFF0F172A), fontWeight = FontWeight.Black)
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        if (entry.isClaimed) stringResource(R.string.action_nice) else stringResource(R.string.action_got_it),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     )

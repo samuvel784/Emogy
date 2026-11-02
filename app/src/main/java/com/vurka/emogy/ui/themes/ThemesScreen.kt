@@ -2,21 +2,17 @@ package com.vurka.emogy.ui.themes
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -24,15 +20,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vurka.emogy.R
-import com.vurka.emogy.model.CardBackTheme
-import com.vurka.emogy.data.ThemeUnlock
+import com.vurka.emogy.data.store.Cosmetic
+import com.vurka.emogy.data.store.CosmeticKind
+import com.vurka.emogy.data.store.StoreCatalog
 import com.vurka.emogy.ui.components.AppTopBar
-import com.vurka.emogy.ui.theme.CardBackVisuals
+import com.vurka.emogy.ui.theme.CosmeticSwatch
 import com.vurka.emogy.ui.theme.EmeraldGreen
 import com.vurka.emogy.ui.theme.RoyalBlue
+import com.vurka.emogy.ui.theme.TextMuted
 import com.vurka.emogy.ui.theme.VividRed
+import com.vurka.emogy.util.SoundManager
 import com.vurka.emogy.viewmodel.LevelSelectionViewModel
 
+/**
+ * Equip screen for every cosmetic kind. Ownership comes from the shared save (purchases, rewards and
+ * real level milestones); equipping writes to the theme preferences.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemesScreen(
@@ -40,145 +43,243 @@ fun ThemesScreen(
     onBackPressed: () -> Unit,
 ) {
     val levelsCompleted by viewModel.totalLevelsCompleted.collectAsState()
-    val selectedThemeId by viewModel.selectedThemeId.collectAsState()
+    val owned by viewModel.ownedCosmetics.collectAsState()
+    val soundEnabled by viewModel.soundEnabled.collectAsState()
+    val selectedCardBack by viewModel.selectedThemeId.collectAsState()
+    val selectedCardTheme by viewModel.selectedCardThemeId.collectAsState()
+    val selectedBoard by viewModel.selectedBoardThemeId.collectAsState()
+    val selectedMatch by viewModel.selectedMatchEffectId.collectAsState()
+    val selectedVictory by viewModel.selectedVictoryEffectId.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+
+    fun isOwned(cosmetic: Cosmetic): Boolean =
+        cosmetic.default ||
+            cosmetic.id in owned ||
+            (cosmetic.milestoneLevel > 0 && levelsCompleted >= cosmetic.milestoneLevel)
+
+    fun selectedIdFor(kind: CosmeticKind): String = when (kind) {
+        CosmeticKind.CARD_BACK -> selectedCardBack
+        CosmeticKind.CARD_THEME -> selectedCardTheme
+        CosmeticKind.BOARD_THEME -> selectedBoard
+        CosmeticKind.MATCH_EFFECT -> selectedMatch
+        CosmeticKind.VICTORY_EFFECT -> selectedVictory
+    }
+
+    fun equip(cosmetic: Cosmetic) {
+        if (!isOwned(cosmetic)) return
+        SoundManager.playTap(soundEnabled)
+        viewModel.equip(cosmetic.kind, cosmetic.id)
+    }
 
     Scaffold(
         topBar = {
-            AppTopBar(
-                title = stringResource(R.string.themes_title),
-                onBack = onBackPressed
-            )
+            AppTopBar(title = stringResource(R.string.themes_title), onBack = onBackPressed)
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp)
+                .testTag("themes_screen"),
+            contentPadding = PaddingValues(top = 14.dp, bottom = 26.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(viewModel.themes) { theme ->
-                val isPurchased by viewModel.isThemePurchased(theme.id).collectAsState(initial = false)
-                // Unlocking is driven by real progress or a coin purchase - never by the fact that
-                // every level is selectable.
-                val isUnlocked = ThemeUnlock.isUnlocked(
-                    purchased = isPurchased,
-                    completedLevels = levelsCompleted,
-                    milestoneLevels = theme.milestoneLevel,
+            item {
+                Text(
+                    stringResource(R.string.themes_shop_hint),
+                    fontSize = 12.sp,
+                    color = TextMuted,
                 )
-                val isSelected = selectedThemeId == theme.id
-
-                ThemeCard(
-                    theme = theme,
-                    isUnlocked = isUnlocked,
-                    isSelected = isSelected,
-                    isDark = isDark,
-                    lockedProgress = if (!isUnlocked) {
-                        stringResource(R.string.themes_locked_progress, levelsCompleted, theme.milestoneLevel)
-                    } else {
-                        null
-                    }
-                ) {
-                    if (isUnlocked) viewModel.setSelectedThemeId(theme.id)
-                }
             }
+
+            section(
+                titleRes = R.string.themes_section_backs,
+                cosmetics = StoreCatalog.cardBacks,
+                selectedId = selectedCardBack,
+                levelsCompleted = levelsCompleted,
+                owned = owned,
+                isDark = isDark,
+                isOwned = ::isOwned,
+                onEquip = ::equip,
+            )
+            section(
+                titleRes = R.string.themes_section_faces,
+                cosmetics = StoreCatalog.cardThemes,
+                selectedId = selectedCardTheme,
+                levelsCompleted = levelsCompleted,
+                owned = owned,
+                isDark = isDark,
+                isOwned = ::isOwned,
+                onEquip = ::equip,
+            )
+            section(
+                titleRes = R.string.themes_section_boards,
+                cosmetics = StoreCatalog.boardThemes,
+                selectedId = selectedBoard,
+                levelsCompleted = levelsCompleted,
+                owned = owned,
+                isDark = isDark,
+                isOwned = ::isOwned,
+                onEquip = ::equip,
+            )
+            section(
+                titleRes = R.string.themes_section_sparkle,
+                cosmetics = StoreCatalog.matchEffects,
+                selectedId = selectedMatch,
+                levelsCompleted = levelsCompleted,
+                owned = owned,
+                isDark = isDark,
+                isOwned = ::isOwned,
+                onEquip = ::equip,
+            )
+            section(
+                titleRes = R.string.themes_section_victory,
+                cosmetics = StoreCatalog.victoryEffects,
+                selectedId = selectedVictory,
+                levelsCompleted = levelsCompleted,
+                owned = owned,
+                isDark = isDark,
+                isOwned = ::isOwned,
+                onEquip = ::equip,
+            )
         }
     }
 }
 
-@Composable
-fun ThemeCard(
-    theme: CardBackTheme,
-    isUnlocked: Boolean,
-    isSelected: Boolean,
+private fun androidx.compose.foundation.lazy.LazyListScope.section(
+    titleRes: Int,
+    cosmetics: List<Cosmetic>,
+    selectedId: String,
+    levelsCompleted: Int,
+    owned: Set<String>,
     isDark: Boolean,
-    lockedProgress: String? = null,
+    isOwned: (Cosmetic) -> Boolean,
+    onEquip: (Cosmetic) -> Unit,
+) {
+    item(key = "theme_header_$titleRes") {
+        Text(
+            text = stringResource(titleRes),
+            modifier = Modifier.padding(top = 10.dp, start = 2.dp),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = TextMuted,
+        )
+    }
+    items(cosmetics.size, key = { cosmetics[it].id }) { index ->
+        val cosmetic = cosmetics[index]
+        val unlocked = isOwned(cosmetic)
+        CosmeticRow(
+            cosmetic = cosmetic,
+            unlocked = unlocked,
+            selected = selectedId == cosmetic.id,
+            levelsCompleted = levelsCompleted,
+            isDark = isDark,
+            onClick = { onEquip(cosmetic) },
+        )
+    }
+}
+
+@Composable
+private fun CosmeticRow(
+    cosmetic: Cosmetic,
+    unlocked: Boolean,
+    selected: Boolean,
+    levelsCompleted: Int,
+    isDark: Boolean,
     onClick: () -> Unit,
 ) {
-    val cardBg = if (isUnlocked) {
-        if (isSelected) (if (isDark) Color(0xFF2A2450) else Color(0xFFDBEAFE)) else (if (isDark) Color(0xFF1C2541) else Color.White)
-    } else {
-        if (isDark) Color(0xFF131B30) else Color(0xFFF1F5F9)
+    val background = when {
+        selected -> if (isDark) Color(0xFF2A2450) else Color(0xFFDBEAFE)
+        unlocked -> MaterialTheme.colorScheme.surface
+        else -> if (isDark) Color(0xFF131B30) else Color(0xFFF1F5F9)
     }
-
-    val cardBorder = if (isSelected) {
-        BorderStroke(2.dp, VividRed)
-    } else if (isUnlocked) {
-        BorderStroke(1.5.dp, RoyalBlue)
-    } else {
-        BorderStroke(1.dp, if (isDark) Color(0xFF2A3A6A) else Color(0xFFCBD5E1))
+    val border = when {
+        selected -> BorderStroke(2.dp, VividRed)
+        unlocked -> BorderStroke(1.5.dp, RoyalBlue)
+        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = isUnlocked, onClick = onClick),
+            .clickable(enabled = unlocked, onClick = onClick)
+            .testTag("theme_${cosmetic.id}"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        border = cardBorder
+        colors = CardDefaults.cardColors(containerColor = background),
+        border = border,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                // Live preview of the actual card back
-                val visual = CardBackVisuals.forTheme(theme.id, isDark)
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(visual.gradient)
-                        .border(BorderStroke(2.dp, visual.border), RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = visual.symbol, fontSize = 22.sp)
-                }
-                Column {
+            CosmeticSwatch(cosmetic = cosmetic, isDark = isDark)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    cosmetic.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (unlocked) {
+                        MaterialTheme.colorScheme.onBackground
+                    } else {
+                        TextMuted
+                    },
+                )
+                Text(
+                    cosmetic.description,
+                    fontSize = 11.sp,
+                    color = TextMuted,
+                )
+                if (!unlocked && cosmetic.milestoneLevel > 0) {
                     Text(
-                        text = theme.name,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isUnlocked) MaterialTheme.colorScheme.onBackground else Color(0xFF64748B)
+                        stringResource(
+                            R.string.themes_locked_progress,
+                            levelsCompleted.coerceAtMost(cosmetic.milestoneLevel),
+                            cosmetic.milestoneLevel,
+                        ),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextMuted,
                     )
-                    Text(
-                        text = theme.description,
-                        fontSize = 13.sp,
-                        color = Color(0xFF94A3B8)
-                    )
-                    if (lockedProgress != null) {
-                        Text(
-                            text = stringResource(R.string.themes_locked, lockedProgress),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF94A3B8)
-                        )
-                    }
                 }
             }
-
-            if (isSelected) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = stringResource(R.string.cd_selected),
-                    tint = EmeraldGreen,
-                    modifier = Modifier.size(28.dp)
-                )
-            } else if (!isUnlocked) {
-                Icon(
+            when {
+                selected -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = stringResource(R.string.themes_equipped),
+                        tint = EmeraldGreen,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text(
+                        stringResource(R.string.themes_equipped),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldGreen,
+                    )
+                }
+                unlocked -> OutlinedButton(
+                    onClick = onClick,
+                    shape = RoundedCornerShape(50),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.store_equip),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                else -> Icon(
                     Icons.Default.Lock,
                     contentDescription = stringResource(R.string.cd_locked),
-                    tint = Color(0xFF64748B),
-                    modifier = Modifier.size(24.dp)
+                    tint = TextMuted,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

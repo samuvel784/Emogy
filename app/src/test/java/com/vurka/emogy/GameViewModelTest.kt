@@ -6,6 +6,8 @@ import com.vurka.emogy.data.LevelRecordResult
 import com.vurka.emogy.game.AssistRules
 import com.vurka.emogy.viewmodel.FakeClock
 import com.vurka.emogy.viewmodel.FakeFeedback
+import com.vurka.emogy.viewmodel.FakeGameplayTracker
+import com.vurka.emogy.viewmodel.FakeHintWallet
 import com.vurka.emogy.viewmodel.FakeProgress
 import com.vurka.emogy.viewmodel.FakeSettings
 import com.vurka.emogy.viewmodel.FakeSnapshotStore
@@ -15,6 +17,10 @@ import com.vurka.emogy.viewmodel.GameFeedback
 import com.vurka.emogy.viewmodel.GameProgress
 import com.vurka.emogy.viewmodel.GameSettings
 import com.vurka.emogy.viewmodel.GameViewModel
+import com.vurka.emogy.viewmodel.GameplayTracker
+import com.vurka.emogy.viewmodel.HintWallet
+import com.vurka.emogy.viewmodel.NoGameplayTracker
+import com.vurka.emogy.viewmodel.NoHintWallet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -189,49 +195,6 @@ class GameViewModelTest {
         assertEquals(0, vm.state.value.hintsLeft)
         vm.useHint()
         assertEquals(0, vm.state.value.hintsLeft)
-
-        vm.viewModelScope.cancel()
-    }
-
-    @Test
-    fun zenModeStartsWithUnlimitedHintsAndNoShuffle() = runTest(dispatcher) {
-        val vm = newGame(level = 100, zen = true)
-
-        assertEquals(-1, vm.state.value.hintsLeft)
-        assertEquals(0, vm.state.value.shuffleCountdownSec)
-
-        vm.useHint()
-        assertEquals(-1, vm.state.value.hintsLeft)
-
-        advanceTimeBy(50_000)
-        runCurrent()
-        assertEquals(0, vm.state.value.shuffleCount)
-        assertFalse(vm.state.value.isGameOver)
-
-        vm.viewModelScope.cancel()
-    }
-
-    @Test
-    fun boardWaitsForThePersistedZenSetting() = runTest(dispatcher) {
-        val settings = FakeSettings(initialZen = null)
-        val vm = GameViewModel(
-            levelNumber = 100,
-            progress = FakeProgress(),
-            settings = settings,
-            feedback = FakeFeedback(),
-            clock = FakeClock(),
-            themeIdFlow = flowOf("default"),
-            snapshots = FakeSnapshotStore(),
-        )
-        runCurrent()
-        assertTrue("no board before settings answer", vm.state.value.cards.isEmpty())
-
-        settings.zen.emit(true)
-        runCurrent()
-
-        assertEquals(-1, vm.state.value.hintsLeft)
-        assertEquals(0, vm.state.value.shuffleCountdownSec)
-        assertTrue(vm.state.value.cards.isNotEmpty())
 
         vm.viewModelScope.cancel()
     }
@@ -729,9 +692,135 @@ class GameViewModelTest {
         vm.viewModelScope.cancel()
     }
 
+    @Test
+    fun purchasedHintTokensWorkOnABossLevelWithoutFreeHints() = runTest(dispatcher) {
+        val wallet = FakeHintWallet(2)
+        val vm = newGame(level = 25, hints = wallet)
+        assertEquals("boss levels keep zero free hints", 0, vm.state.value.hintsLeft)
+        assertEquals(2, vm.hintTokens.value)
+
+        vm.useHint()
+        runCurrent()
+
+        assertEquals(0, vm.state.value.hintsLeft)
+        assertEquals(1, vm.state.value.hintsUsed)
+        assertEquals(1, wallet.current)
+        assertTrue(vm.state.value.isHintOnCooldown)
+        assertEquals(1, wallet.consumeAttempts)
+
+        // A second tap during the cooldown must not spend another token.
+        vm.useHint()
+        runCurrent()
+        assertEquals(1, wallet.current)
+        assertEquals(1, vm.state.value.hintsUsed)
+
+        advanceTimeBy(10_000)
+        runCurrent()
+        vm.useHint()
+        runCurrent()
+        assertEquals(2, vm.state.value.hintsUsed)
+        assertEquals(0, wallet.current)
+
+        advanceTimeBy(10_000)
+        runCurrent()
+        vm.useHint()
+        runCurrent()
+        assertEquals("an empty wallet cannot grant a hint", 2, vm.state.value.hintsUsed)
+        assertEquals(0, wallet.current)
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
+    fun freeHintsAreSpentBeforePurchasedTokens() = runTest(dispatcher) {
+        val wallet = FakeHintWallet(3)
+        val vm = newGame(level = 101, hints = wallet)
+        val start = vm.state.value.hintsLeft
+        assertTrue(start > 0)
+
+        vm.useHint()
+        runCurrent()
+
+        assertEquals(start - 1, vm.state.value.hintsLeft)
+        assertEquals(3, wallet.current)
+        assertEquals(0, wallet.consumeAttempts)
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
+    fun victoryReportsOneAuthoritativeGameplayEvent() = runTest(dispatcher) {
+        val tracker = FakeGameplayTracker()
+        val vm = newGame(level = 1, tasks = tracker)
+
+        matchAll(vm)
+        advanceUntilIdle()
+
+        assertEquals(1, tracker.calls)
+        val event = tracker.events.single()
+        assertEquals(1, event.levelId)
+        assertEquals(vm.state.value.totalPairs, event.pairs)
+        assertEquals(vm.state.value.stars, event.stars)
+        assertEquals(vm.state.value.mistakes, event.mistakes)
+        assertEquals(vm.state.value.hintsUsed, event.hintsUsed)
+        assertEquals(vm.state.value.coinsAwarded, event.coins)
+        assertTrue(event.coins > 0)
+        assertEquals(false, event.isDaily)
+        assertEquals(false, event.isBoss)
+
+        // A replay is still a completed level, but it reports zero coins.
+        vm.startNewGame()
+        runCurrent()
+        finishPreview(vm)
+        matchAll(vm)
+        advanceUntilIdle()
+
+        assertEquals(2, tracker.events.size)
+        assertEquals(0, tracker.events[1].coins)
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
+    fun dailyVictoryReportsTheDailyLevelKey() = runTest(dispatcher) {
+        val tracker = FakeGameplayTracker()
+        val vm = newGame(level = 1, daily = true, dailyEpochDay = 20_645L, tasks = tracker)
+
+        matchAll(vm)
+        advanceUntilIdle()
+
+        val event = tracker.events.single()
+        assertEquals(0, event.levelId)
+        assertEquals(0, event.world)
+        assertTrue(event.isDaily)
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
+    fun hintsUsedSurvivePauseAndRestore() = runTest(dispatcher) {
+        val snapshots = FakeSnapshotStore()
+        val wallet = FakeHintWallet(1)
+        val first = newGame(level = 25, hints = wallet, snapshots = snapshots)
+        first.useHint()
+        runCurrent()
+        assertEquals(1, first.state.value.hintsUsed)
+
+        first.togglePause()
+        runCurrent()
+        first.viewModelScope.cancel()
+
+        val second = newGame(level = 25, hints = wallet, snapshots = snapshots, finishPreview = false)
+
+        assertTrue(second.state.value.wasRestored)
+        assertEquals(1, second.state.value.hintsUsed)
+        assertEquals(0, second.state.value.hintsLeft)
+
+        second.viewModelScope.cancel()
+    }
+
     private fun TestScope.newGame(
         level: Int,
-        zen: Boolean = false,
         assist: Boolean = false,
         daily: Boolean = false,
         dailyEpochDay: Long = 0L,
@@ -740,17 +829,21 @@ class GameViewModelTest {
         finishPreview: Boolean = true,
         snapshots: FakeSnapshotStore = FakeSnapshotStore(),
         clock: FakeClock = FakeClock(),
+        hints: HintWallet = NoHintWallet,
+        tasks: GameplayTracker = NoGameplayTracker,
     ): GameViewModel {
         val vm = GameViewModel(
             levelNumber = level,
             progress = progress,
-            settings = FakeSettings(initialZen = zen, initialAssist = assist),
+            settings = FakeSettings(initialAssist = assist),
             feedback = feedback,
             clock = clock,
             themeIdFlow = flowOf("default"),
             snapshots = snapshots,
             isDaily = daily,
             dailyEpochDay = dailyEpochDay,
+            hints = hints,
+            tasks = tasks,
         )
         runCurrent()
         if (finishPreview) finishPreview(vm)
@@ -758,7 +851,7 @@ class GameViewModelTest {
     }
 
     private fun TestScope.finishPreview(vm: GameViewModel) {
-        advanceTimeBy(vm.levelConfig.previewTimeSec * 1_000L)
+        vm.manualFlipCards()
         runCurrent()
     }
 

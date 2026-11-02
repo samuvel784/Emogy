@@ -5,6 +5,8 @@ import com.vurka.emogy.data.DailyOutcome
 import com.vurka.emogy.data.GameSnapshot
 import com.vurka.emogy.data.LevelRecordResult
 import com.vurka.emogy.data.ProgressRepository
+import com.vurka.emogy.data.tasks.LevelCompletedEvent
+import com.vurka.emogy.data.tasks.TaskRepository
 import com.vurka.emogy.util.HapticManager
 import com.vurka.emogy.util.SoundManager
 import kotlinx.coroutines.flow.Flow
@@ -84,7 +86,6 @@ class RepositoryGameProgress(private val repository: ProgressRepository) : GameP
 class RepositoryGameSettings(private val repository: ProgressRepository) : GameSettings {
     override val soundEnabled: Flow<Boolean> = repository.soundEnabled
     override val hapticsEnabled: Flow<Boolean> = repository.hapticsEnabled
-    override val zenMode: Flow<Boolean> = repository.isZenMode
     override val assistMode: Flow<Boolean> = repository.isAssistMode
 }
 
@@ -92,4 +93,13 @@ class RepositoryGameSnapshotStore(private val repository: ProgressRepository) : 
     override suspend fun load(): GameSnapshot? = repository.loadGameSnapshot()
     override suspend fun save(snapshot: GameSnapshot) = repository.saveGameSnapshot(snapshot)
     override suspend fun clear() = repository.clearGameSnapshot()
+}
+
+class RepositoryHintWallet(private val repository: ProgressRepository) : HintWallet {
+    override val tokens: Flow<Int> = repository.hintTokens
+    override suspend fun tryConsume(): Boolean = repository.tryConsumeHintToken()
+}
+
+class RepositoryGameplayTracker(private val repository: TaskRepository) : GameplayTracker {
+    override suspend fun record(event: LevelCompletedEvent) = repository.recordLevelCompleted(event)
 }

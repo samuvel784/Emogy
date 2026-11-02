@@ -22,8 +22,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavBackStackEntry
@@ -33,21 +35,26 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.vurka.emogy.data.AlbumProgressCalculator
 import com.vurka.emogy.data.EmojiCatalog
 import com.vurka.emogy.data.LevelCatalog
+import com.vurka.emogy.data.login.LoginRepository
+import com.vurka.emogy.data.tasks.TaskRepository
 import com.vurka.emogy.ui.album.AlbumScreen
 import com.vurka.emogy.ui.components.AppBottomBar
 import com.vurka.emogy.ui.daily.DailyScreen
 import com.vurka.emogy.ui.game.GameScreen
 import com.vurka.emogy.ui.home.HomeScreen
+import com.vurka.emogy.ui.legal.LegalScreen
 import com.vurka.emogy.ui.levels.LevelSelectScreen
 import com.vurka.emogy.ui.more.MoreScreen
 import com.vurka.emogy.ui.navigation.Screen
 import com.vurka.emogy.ui.navigation.TopLevelDestinations
 import com.vurka.emogy.ui.settings.SettingsScreen
-import com.vurka.emogy.ui.stats.AchievementsScreen
 import com.vurka.emogy.ui.stats.StatsScreen
 import com.vurka.emogy.ui.store.StoreScreen
+import com.vurka.emogy.ui.tasks.TasksScreen
+import com.vurka.emogy.ui.tasks.TasksViewModel
 import com.vurka.emogy.ui.themes.ThemesScreen
 import com.vurka.emogy.ui.theme.MemoryMatchTheme
 import com.vurka.emogy.util.AndroidGlyphSupport
@@ -57,6 +64,7 @@ import com.vurka.emogy.util.WorldMusic
 import com.vurka.emogy.viewmodel.GameViewModel
 import com.vurka.emogy.viewmodel.GameViewModelFactory
 import com.vurka.emogy.viewmodel.LevelSelectionViewModel
+import kotlinx.coroutines.launch
 
 /** Tab taps are siblings, not a push, so roots cross-fade instead of sliding sideways. */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTopLevelSwitch(): Boolean =
@@ -64,6 +72,13 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTopLevelSwitch()
         targetState.destination.route in TopLevelDestinations.routes
 
 class MainActivity : ComponentActivity() {
+    /**
+     * Login and task rollover are owned by the activity, not by a screen, so the streak advances
+     * even when the player goes straight from Home into a level.
+     */
+    private val loginRepository by lazy { LoginRepository(applicationContext) }
+    private val taskRepository by lazy { TaskRepository(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -119,6 +134,19 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val tasksViewModel: TasksViewModel = viewModel()
+                val tasksUiState by tasksViewModel.ui.collectAsState()
+                val hasTaskClaims = tasksUiState.hasClaimable
+                val collectedEmojis by levelSelectionViewModel.collectedEmojis.collectAsState()
+                val claimedAlbumEmojis by levelSelectionViewModel.claimedAlbumEmojis.collectAsState()
+                val hasAlbumClaims = remember(collectedEmojis, claimedAlbumEmojis) {
+                    AlbumProgressCalculator.calculate(
+                        catalog = EmojiCatalog.items,
+                        collectedIds = collectedEmojis,
+                        claimedIds = claimedAlbumEmojis,
+                    ).readyToClaimCount > 0
+                }
+
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -126,6 +154,8 @@ class MainActivity : ComponentActivity() {
                         if (TopLevelDestinations.showsBottomBar(currentRoute)) {
                             AppBottomBar(
                                 currentRoute = currentRoute,
+                                hasTaskClaims = hasTaskClaims,
+                                hasAlbumClaims = hasAlbumClaims,
                                 onSelect = navigateToTab
                             )
                         }
@@ -207,8 +237,10 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable(Screen.Daily.route) {
+                            val tasksViewModel: TasksViewModel = viewModel()
                             DailyScreen(
                                 viewModel = levelSelectionViewModel,
+                                tasksViewModel = tasksViewModel,
                                 onPlay = { day ->
                                     navController.navigate(Screen.DailyGame.createRoute(day))
                                 }
@@ -274,9 +306,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable(Screen.Achievements.route) {
-                            AchievementsScreen(
-                                viewModel = levelSelectionViewModel,
+                        composable(Screen.Tasks.route) {
+                            val tasksViewModel: TasksViewModel = viewModel()
+                            TasksScreen(
+                                viewModel = tasksViewModel,
                                 onBackPressed = {
                                     navController.popBackStack()
                                 }
@@ -331,12 +364,17 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.More.route) {
                             MoreScreen(
                                 viewModel = levelSelectionViewModel,
-                                onRewards = { navController.navigate(Screen.Achievements.route) },
+                                onRewards = { navController.navigate(Screen.Tasks.route) },
                                 onStats = { navController.navigate(Screen.Stats.route) },
                                 onThemes = { navController.navigate(Screen.Themes.route) },
                                 onStore = { navController.navigate(Screen.Store.route) },
-                                onSettings = { navController.navigate(Screen.Settings.route) }
+                                onSettings = { navController.navigate(Screen.Settings.route) },
+                                onAbout = { navController.navigate(Screen.Legal.route) }
                             )
+                        }
+
+                        composable(Screen.Legal.route) {
+                            LegalScreen(onBackPressed = { navController.popBackStack() })
                         }
 
                         composable(Screen.Settings.route) {
@@ -366,6 +404,11 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         SoundManager.setAppForeground(true)
         MusicManager.onEnterForeground()
+        // One idempotent check-in per local date; a second foreground pass changes nothing.
+        lifecycleScope.launch {
+            loginRepository.checkIn()
+            taskRepository.refresh()
+        }
         if (!noisyReceiverRegistered) {
             ContextCompat.registerReceiver(
                 this,

@@ -6,6 +6,7 @@ import com.vurka.emogy.data.DailyChallenge
 import com.vurka.emogy.data.GameSnapshot
 import com.vurka.emogy.data.LevelCatalog
 import com.vurka.emogy.data.SnapshotCard
+import com.vurka.emogy.data.tasks.LevelCompletedEvent
 import com.vurka.emogy.game.AssistRules
 import com.vurka.emogy.game.GameState
 import com.vurka.emogy.game.MemoryGameEngine
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,6 +39,12 @@ class GameViewModel(
     /** A daily run uses [DailyChallenge] instead of a numbered level. */
     val isDaily: Boolean = false,
     val dailyEpochDay: Long = 0L,
+    cardThemeIdFlow: Flow<String> = flowOf("classic"),
+    boardThemeIdFlow: Flow<String> = flowOf("board_default"),
+    matchEffectIdFlow: Flow<String> = flowOf("sparkle_none"),
+    victoryEffectIdFlow: Flow<String> = flowOf("confetti_classic"),
+    private val hints: HintWallet = NoHintWallet,
+    private val tasks: GameplayTracker = NoGameplayTracker,
 ) : ViewModel() {
     val levelConfig: LevelConfig =
         if (isDaily) DailyChallenge.config else LevelCatalog.getLevel(levelNumber)
@@ -52,6 +60,37 @@ class GameViewModel(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
         initialValue = "default",
+    )
+
+    val selectedCardThemeId: StateFlow<String> = cardThemeIdFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = "classic",
+    )
+
+    val selectedBoardThemeId: StateFlow<String> = boardThemeIdFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = "board_default",
+    )
+
+    val selectedMatchEffectId: StateFlow<String> = matchEffectIdFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = "sparkle_none",
+    )
+
+    val selectedVictoryEffectId: StateFlow<String> = victoryEffectIdFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = "confetti_classic",
+    )
+
+    /** Purchased hint inventory, shown next to the free allowance in the HUD. */
+    val hintTokens: StateFlow<Int> = hints.tokens.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = 0,
     )
 
     /** Human friendly name of the world this level belongs to, or the daily label. */
@@ -71,13 +110,6 @@ class GameViewModel(
         initialValue = true,
     )
 
-    /** UI mirror of Zen mode. Game rules use [zenMode], which is seeded from the first persisted value. */
-    val isZenMode: StateFlow<Boolean> = settings.zenMode.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = false,
-    )
-
     /** UI mirror of Assist mode; the top bar only shows the heart button when this is true. */
     val isAssistMode: StateFlow<Boolean> = settings.assistMode.stateIn(
         scope = viewModelScope,
@@ -85,7 +117,6 @@ class GameViewModel(
         initialValue = false,
     )
 
-    private var zenMode: Boolean = false
     private var assistModeEnabled: Boolean = false
 
     private val _state = MutableStateFlow(GameState())
@@ -109,25 +140,24 @@ class GameViewModel(
             // victory shortcut all end up here. A daily run is not a level, so it must not move the
             // Continue button or overwrite the suspended level's snapshot.
             if (!isDaily) progress.setLastPlayedLevel(levelNumber)
-            zenMode = settings.zenMode.first()
             assistModeEnabled = settings.assistMode.first()
 
             if (isDaily) {
-                startNewGame(zen = zenMode)
+                startNewGame()
                 return@launch
             }
 
             val saved = snapshots.load()
             when {
-                saved == null -> startNewGame(zen = zenMode)
-                saved.level != levelNumber -> startNewGame(zen = zenMode)
+                saved == null -> startNewGame()
+                saved.level != levelNumber -> startNewGame()
                 saved.isExpired(clock.nowMillis()) -> {
                     snapshots.clear()
-                    startNewGame(zen = zenMode)
+                    startNewGame()
                 }
                 !restore(saved) -> {
                     snapshots.clear()
-                    startNewGame(zen = zenMode)
+                    startNewGame()
                 }
             }
         }
@@ -149,10 +179,6 @@ class GameViewModel(
     }
 
     fun startNewGame() {
-        startNewGame(zen = zenMode)
-    }
-
-    private fun startNewGame(zen: Boolean) {
         cancelAllJobs()
         // A daily replay must deal the exact same board, so the engine is recreated from the
         // day seed every time.
@@ -167,21 +193,23 @@ class GameViewModel(
             totalPairs = levelConfig.pairCount,
             isPreviewing = true,
             timeRemainingSec = levelConfig.timeLimitSec,
-            hintsLeft = if (zen) -1 else levelConfig.maxHints,
-            shuffleCountdownSec = if (zen) 0 else levelConfig.shuffleIntervalSec,
+            hintsLeft = levelConfig.maxHints,
+            shuffleCountdownSec = levelConfig.shuffleIntervalSec,
         )
+    }
 
-        previewJob = viewModelScope.launch {
-            delay(levelConfig.previewTimeSec.seconds)
-            _state.update { current ->
-                if (current.isPreviewing) {
-                    current.copy(
-                        cards = current.cards.map { it.copy(isFlipped = false) },
-                        isPreviewing = false,
-                    )
-                } else current
-            }
-            if (!_state.value.isPaused) startTimer()
+    fun manualFlipCards() {
+        val current = _state.value
+        if (!current.isPreviewing) return
+        previewJob?.cancel()
+        _state.update { state ->
+            state.copy(
+                cards = state.cards.map { it.copy(isFlipped = false) },
+                isPreviewing = false,
+            )
+        }
+        if (!_state.value.isPaused) {
+            startTimer()
         }
     }
 
@@ -198,7 +226,6 @@ class GameViewModel(
     }
 
     private fun tick() {
-        val zen = zenMode
         var lostByTime = false
         var shuffled = false
 
@@ -210,7 +237,7 @@ class GameViewModel(
             val elapsed = current.timeElapsedSec + 1
             var remaining = current.timeRemainingSec
             var lost = false
-            if ((!zen) && (levelConfig.timeLimitSec > 0)) {
+            if (levelConfig.timeLimitSec > 0) {
                 remaining -= 1
                 if (remaining <= 0) lost = true
             }
@@ -226,7 +253,7 @@ class GameViewModel(
             lostByTime = lost
 
             // Reshuffle countdown (only while the player is idle, so a pick is never disturbed).
-            if ((!zen) && (!lost) && (levelConfig.shuffleIntervalSec > 0)) {
+            if ((!lost) && (levelConfig.shuffleIntervalSec > 0)) {
                 val idle = (current.firstSelectedCardId == null) &&
                     (current.secondSelectedCardId == null) &&
                     (mismatchJob?.isActive != true)
@@ -269,7 +296,7 @@ class GameViewModel(
         } else {
             // Final ten seconds: a quiet tick, sharper and higher for the last three.
             val snapshot = _state.value
-            if ((!zen) && (!snapshot.isGameOver) && (!snapshot.isPaused) && (levelConfig.timeLimitSec > 0)) {
+            if ((!snapshot.isGameOver) && (!snapshot.isPaused) && (levelConfig.timeLimitSec > 0)) {
                 val remaining = snapshot.timeRemainingSec
                 if (remaining in 1..10) {
                     feedback.play(
@@ -280,6 +307,41 @@ class GameViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * Reports one genuine victory to the task engine. Called exactly once per win, after the coin
+     * write, so the payload contains the real payout. A replay still counts as a completed level
+     * (missions ask for levels, not first clears), but it reports zero coins.
+     */
+    private suspend fun recordTaskProgress(
+        matchedCards: List<MemoryCard>,
+        stars: Int,
+        moves: Int,
+    ) {
+        val current = _state.value
+        val worldIndex = if (isDaily) 0 else LevelCatalog.getWorldInfo(levelNumber).index
+        tasks.record(
+            LevelCompletedEvent(
+                atMillis = clock.nowMillis(),
+                levelId = if (isDaily) 0 else levelNumber,
+                world = worldIndex,
+                stars = stars,
+                pairs = current.totalPairs,
+                distinctEmojiIds = matchedCards.filter { it.isMatched }.map { it.emojiId }.toSet(),
+                moves = moves,
+                mistakes = current.mistakes,
+                hintsUsed = current.hintsUsed,
+                shuffles = current.shuffleCount,
+                seconds = current.timeElapsedSec,
+                coins = current.coinsAwarded,
+                isBoss = levelConfig.isBoss,
+                isDaily = isDaily,
+                isTimed = levelConfig.timeLimitSec > 0,
+                isHighDifficulty = levelConfig.difficultyLabel == "Expert" ||
+                    levelConfig.difficultyLabel == "Master",
+            ),
+        )
     }
 
     /**
@@ -295,10 +357,29 @@ class GameViewModel(
 
     fun useHint() {
         val current = _state.value
-        val zen = zenMode
         if (current.isPreviewing || current.isPaused || current.isGameOver || current.isHintOnCooldown) return
-        if ((current.hintsLeft == 0) && (!zen)) return
 
+        val freeAvailable = current.hintsLeft > 0
+        val tokenAvailable = hintTokens.value > 0
+        if (!freeAvailable && !tokenAvailable) return
+
+        // Block rapid repeated taps synchronously
+        _state.update { it.copy(isHintOnCooldown = true, hintCooldownRemainingSec = 10) }
+
+        if (freeAvailable) {
+            revealHint(consumeFree = true)
+        } else {
+            viewModelScope.launch {
+                if (!hints.tryConsume()) {
+                    _state.update { it.copy(isHintOnCooldown = false, hintCooldownRemainingSec = 0) }
+                    return@launch
+                }
+                revealHint(consumeFree = false)
+            }
+        }
+    }
+
+    private fun revealHint(consumeFree: Boolean) {
         feedback.play(
             cue = GameCue.HINT,
             soundEnabled = soundEnabled.value,
@@ -306,20 +387,20 @@ class GameViewModel(
         )
 
         _state.update { state ->
+            val nextHintsLeft = if (consumeFree && state.hintsLeft > 0) state.hintsLeft - 1 else state.hintsLeft
             state.copy(
                 cards = state.cards.map { if (!it.isMatched) it.copy(isFlipped = true) else it },
                 isHintOnCooldown = true,
                 hintCooldownRemainingSec = 10,
-                hintsLeft = if (zen) -1 else if (state.hintsLeft > 0) state.hintsLeft - 1 else state.hintsLeft,
+                hintsLeft = nextHintsLeft,
+                hintsUsed = state.hintsUsed + 1,
             )
         }
         scheduleSnapshotSave()
 
         hintJob?.cancel()
         hintJob = viewModelScope.launch {
-            // Higher levels show the board for a shorter time.
-            val showMs = if (levelConfig.levelNumber > 300) 1500L else 2200L
-            delay(showMs.milliseconds)
+            delay(5000L)
             _state.update { state ->
                 state.copy(
                     cards = state.cards.map {
@@ -409,7 +490,6 @@ class GameViewModel(
         autoHideJob?.cancel()
         val firstCard = updatedCards.find { it.id == current.firstSelectedCardId } ?: return
         val newMoves = current.moves + 1
-        val zen = zenMode
 
         if (firstCard.emojiId == clickedCard.emojiId) {
             // Every successful pair unlocks its emoji in the offline album, including the final
@@ -493,6 +573,7 @@ class GameViewModel(
                             )
                         }
                     }
+                    recordTaskProgress(matchedCards, earnedStars, newMoves)
                 }
                 return
             }
@@ -549,8 +630,8 @@ class GameViewModel(
             }
         }
 
-        // Move limit (not in Zen mode).
-        if ((!zen) && (levelConfig.moveLimit > 0) && (newMoves >= levelConfig.moveLimit) && (!_state.value.isWon)) {
+        // Move limit
+        if ((levelConfig.moveLimit > 0) && (newMoves >= levelConfig.moveLimit) && (!_state.value.isWon)) {
             cancelAllJobs()
             clearSnapshot()
             feedback.play(
@@ -566,7 +647,7 @@ class GameViewModel(
     /** High levels: a lone face-up card flips back by itself, so the player must be quick. */
     private fun scheduleAutoHide(cardId: Int) {
         autoHideJob?.cancel()
-        if ((levelConfig.autoHideMs <= 0) || zenMode) return
+        if (levelConfig.autoHideMs <= 0) return
         autoHideJob = viewModelScope.launch {
             delay(levelConfig.autoHideMs.milliseconds)
             _state.update { state ->
@@ -627,6 +708,7 @@ class GameViewModel(
                 shuffleCountdownSec = current.shuffleCountdownSec,
                 shuffleCount = current.shuffleCount,
                 wasPaused = current.isPaused,
+                hintsUsed = current.hintsUsed,
             )
         )
     }
@@ -660,17 +742,13 @@ class GameViewModel(
         }
         if (snapshot.hintsLeft < -1) return false
         if (levelConfig.maxHints >= 0 && snapshot.hintsLeft > levelConfig.maxHints) return false
+        if (snapshot.hintsUsed < 0) return false
         if (snapshot.combo < 0 || snapshot.maxCombo < snapshot.combo) return false
         if (snapshot.shuffleCountdownSec < 0 || snapshot.shuffleCount < 0) return false
         if (levelConfig.shuffleIntervalSec == 0 && snapshot.shuffleCountdownSec != 0) return false
         if (levelConfig.shuffleIntervalSec > 0 && snapshot.shuffleCountdownSec > levelConfig.shuffleIntervalSec) {
             return false
         }
-        if (zenMode) {
-            if (snapshot.hintsLeft != -1) return false
-            if (snapshot.shuffleCountdownSec != 0) return false
-        }
-
         _state.value = GameState(
             cards = snapshot.cards.map { card ->
                 MemoryCard(
@@ -693,6 +771,7 @@ class GameViewModel(
             maxCombo = snapshot.maxCombo,
             shuffleCountdownSec = snapshot.shuffleCountdownSec,
             shuffleCount = snapshot.shuffleCount,
+            hintsUsed = snapshot.hintsUsed,
             wasRestored = true,
             restoredPaused = snapshot.wasPaused,
         )

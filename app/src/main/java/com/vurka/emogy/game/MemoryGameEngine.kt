@@ -22,8 +22,10 @@ data class GameState(
     val stars: Int = 0,
     val isHintOnCooldown: Boolean = false,
     val hintCooldownRemainingSec: Int = 0,
-    /** Hints still available (-1 = unlimited). */
+    /** Hints still available (-1 = unlimited). Purchased tokens are tracked separately. */
     val hintsLeft: Int = -1,
+    /** Hints actually used this run, from the free allowance or from purchased tokens. */
+    val hintsUsed: Int = 0,
     /** Consecutive successful matches. */
     val combo: Int = 0,
     val maxCombo: Int = 0,

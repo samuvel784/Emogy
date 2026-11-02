@@ -1,87 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
-    <!-- Left Card (Blue, Tilted Left) -->
-    <path
-        android:pathData="M24,28 L46,24 C48.5,23.5 51,25.2 51.5,27.7 L59.5,67.7 C60,70.2 58.3,72.7 55.8,73.2 L33.8,77.2 C31.3,77.7 28.8,76 28.3,73.5 L20.3,33.5 C19.8,31 21.5,28.5 24,28 Z"
-        android:strokeWidth="1.2"
-        android:strokeColor="#93C5FD">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="20"
-                android:startY="24"
-                android:endX="60"
-                android:endY="77"
-                android:type="linear">
-                <item android:color="#FF3B82F6" android:offset="0.0" />
-                <item android:color="#FF1D4ED8" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-
-    <!-- Star Character 1 (Left - Smiling) -->
-    <path
-        android:pathData="M37,42 L40,49 L48,50 L42,55 L44,63 L37,59 L30,63 L32,55 L26,50 L34,49 Z"
-        android:strokeWidth="0.8"
-        android:strokeColor="#B45309">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="26"
-                android:startY="42"
-                android:endX="48"
-                android:endY="63"
-                android:type="linear">
-                <item android:color="#FEF08A" android:offset="0.0" />
-                <item android:color="#FACC15" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path android:fillColor="#1E1B4B" android:pathData="M33,52 m-1.2,0 a1.2,1.2 0 1,1 2.4,0 a1.2,1.2 0 1,1 -2.4,0" />
-    <path android:fillColor="#1E1B4B" android:pathData="M41,52 m-1.2,0 a1.2,1.2 0 1,1 2.4,0 a1.2,1.2 0 1,1 -2.4,0" />
-    <path android:pathData="M35,56 Q37,58 39,56" android:strokeWidth="0.9" android:strokeColor="#1E1B4B" android:strokeLineCap="round" android:fillColor="#00000000" />
-
-    <!-- Right Card (Cyan, Tilted Right) -->
-    <path
-        android:pathData="M52,24 L74,30 C76.5,30.7 78,33.2 77.3,35.7 L69.3,75.7 C68.6,78.2 66.1,79.7 63.6,79 L41.6,73 C39.1,72.3 37.6,69.8 38.3,67.3 L46.3,27.3 C47,24.8 49.5,23.3 52,24 Z"
-        android:strokeWidth="1.2"
-        android:strokeColor="#67E8F9">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="40"
-                android:startY="24"
-                android:endX="78"
-                android:endY="79"
-                android:type="linear">
-                <item android:color="#FF06B6D4" android:offset="0.0" />
-                <item android:color="#FF0EA5E9" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-
-    <!-- Star Character 2 (Right - Winking) -->
-    <path
-        android:pathData="M57,45 L60,52 L68,53 L62,58 L64,66 L57,62 L50,66 L52,58 L46,53 L54,52 Z"
-        android:strokeWidth="0.8"
-        android:strokeColor="#B45309">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="46"
-                android:startY="45"
-                android:endX="68"
-                android:endY="66"
-                android:type="linear">
-                <item android:color="#FEF08A" android:offset="0.0" />
-                <item android:color="#FACC15" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path android:pathData="M53,54 Q55,52 57,54" android:strokeWidth="0.9" android:strokeColor="#1E1B4B" android:strokeLineCap="round" android:fillColor="#00000000" />
-    <path android:fillColor="#1E1B4B" android:pathData="M61,54 m-1.2,0 a1.2,1.2 0 1,1 2.4,0 a1.2,1.2 0 1,1 -2.4,0" />
-    <path android:pathData="M55,59 Q57,61 59,59" android:strokeWidth="0.9" android:strokeColor="#1E1B4B" android:strokeLineCap="round" android:fillColor="#00000000" />
-
-</vector>
+<!-- Adaptive launcher foreground (API 26+): the Emogy logo centred in the safe zone.
+     The logo has transparent outer corners so the gradient background shows through the mask. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="72dp"
+        android:height="72dp"
+        android:drawable="@drawable/emogy_logo"
+        android:gravity="center" />
+</layer-list>

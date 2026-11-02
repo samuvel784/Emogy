@@ -23,23 +23,19 @@ import androidx.compose.ui.unit.sp
 import com.vurka.emogy.R
 import com.vurka.emogy.ui.theme.VividRed
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HowToPlayBottomSheet(
     onDismiss: () -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0xFF94A3B8)) }
+    EmogyPopupDialog(
+        visible = true,
+        onDismissRequest = onDismiss
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -50,15 +46,15 @@ fun HowToPlayBottomSheet(
             ) {
                 Text(
                     text = stringResource(R.string.how_to_play_title),
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 )
                 IconButton(onClick = onDismiss, modifier = Modifier.testTag("close_how_to_play")) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.cd_close),
-                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        tint = Color(0xFF94A3B8)
                     )
                 }
             }
@@ -126,14 +122,7 @@ fun HowToPlayBottomSheet(
                 isDark = isDark
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
 
-            InstructionCard(
-                icon = "🧘",
-                title = stringResource(R.string.howto_zen_title),
-                description = stringResource(R.string.howto_zen_body),
-                isDark = isDark
-            )
 
             Spacer(modifier = Modifier.height(12.dp))
 

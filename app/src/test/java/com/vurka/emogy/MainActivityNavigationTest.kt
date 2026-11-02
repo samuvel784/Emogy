@@ -73,6 +73,36 @@ class MainActivityNavigationTest {
     }
 
     @Test
+    fun dailyTabShowsMissionsAndKeepsItsBottomBar() {
+        waitForHome()
+
+        compose.onNodeWithTag("nav_daily").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("daily_screen").assertIsDisplayed()
+
+        // The board card stays first; the progression hub continues below it in the same scroll.
+        compose.onNodeWithTag("daily_list").performScrollToNode(hasTestTag("weekly_login_card"))
+        compose.onNodeWithTag("weekly_login_card").assertIsDisplayed()
+
+        compose.onNodeWithTag("daily_list").performScrollToNode(hasTestTag("streak_card"))
+        compose.onNodeWithTag("streak_card").assertIsDisplayed()
+
+        compose.onNodeWithTag("daily_list").performScrollToNode(hasTestTag("section_daily"))
+        compose.onNodeWithTag("section_daily").assertIsDisplayed()
+
+        compose.onNodeWithTag("daily_list").performScrollToNode(hasTestTag("section_weekly"))
+        compose.onNodeWithTag("section_weekly").assertIsDisplayed()
+
+        compose.onNodeWithTag("daily_list").performScrollToNode(hasTestTag("section_monthly"))
+        compose.onNodeWithTag("section_monthly").assertIsDisplayed()
+
+        // Embedding the missions must not cost the Daily tab its navigation.
+        compose.onNodeWithTag("nav_daily").assertIsDisplayed()
+        compose.onNodeWithTag("nav_daily").assertIsSelected()
+        compose.onNodeWithTag("nav_home").assertIsDisplayed()
+    }
+
+    @Test
     @Config(sdk = [36], qualifiers = "w320dp-h480dp-port-mdpi")
     fun smallScreenKeepsEveryTabReachable() {
         waitForHome()

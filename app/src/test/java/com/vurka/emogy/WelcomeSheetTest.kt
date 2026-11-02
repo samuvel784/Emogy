@@ -42,7 +42,6 @@ class WelcomeSheetTest {
         compose.onNodeWithText("Find every pair").assertIsDisplayed()
         compose.onNodeWithText("Beat your own best").assertIsDisplayed()
         compose.onNodeWithText("Come back for more").assertExists()
-        compose.onNodeWithText("Offline • No ads • No tracking").assertExists()
     }
 
     @Test

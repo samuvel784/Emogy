@@ -1,17 +1,13 @@
 package com.vurka.emogy.data
 
 import android.content.Context
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
 import com.vurka.emogy.util.AudioMix
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "memory_match_prefs")
 
 /** The three audio sliders, bundled so the UI and the engines read one consistent snapshot. */
 data class AudioSettings(
@@ -31,7 +27,7 @@ data class LevelRecordResult(
 )
 
 class ProgressRepository(private val context: Context) {
-    private val dataStore = context.dataStore
+    private val dataStore = context.gameDataStore
 
     companion object {
         private val LAST_PLAYED_LEVEL_KEY = intPreferencesKey("last_played_level")
@@ -41,7 +37,6 @@ class ProgressRepository(private val context: Context) {
         private val EFFECTS_VOLUME_KEY = floatPreferencesKey("effects_volume")
         private val HAPTICS_ENABLED_KEY = booleanPreferencesKey("haptics_enabled")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode") // "Default", "Light", "Dark"
-        private val IS_ZEN_MODE_KEY = booleanPreferencesKey("is_zen_mode")
         private val ASSIST_MODE_KEY = booleanPreferencesKey("assist_mode")
         private val WELCOME_SEEN_KEY = booleanPreferencesKey("welcome_seen")
         private val SELECTED_THEME_KEY = stringPreferencesKey("selected_theme")
@@ -49,10 +44,16 @@ class ProgressRepository(private val context: Context) {
         private val LAST_PLAY_DATE_KEY = longPreferencesKey("last_play_date")
         private val TOTAL_GAMES_PLAYED_KEY = intPreferencesKey("total_games_played")
         private val PERFECT_GAMES_KEY = intPreferencesKey("perfect_games")
-        private val COINS_KEY = intPreferencesKey("user_coins")
+        private val COINS_KEY = GameKeys.COINS
+        private val HINT_TOKENS_KEY = GameKeys.HINT_TOKENS
+        private val OWNED_COSMETICS_KEY = GameKeys.OWNED_COSMETICS
+        private val LAST_SEEN_DAY_KEY = GameKeys.LAST_SEEN_DAY
         private val TOTAL_FLIPS_KEY = intPreferencesKey("total_card_flips")
         private val ANIMAL_FLIPS_KEY = intPreferencesKey("animal_card_flips")
         private val COLLECTED_EMOJIS_KEY = stringSetPreferencesKey("collected_emojis")
+        private val CLAIMED_ALBUM_EMOJIS_KEY = stringSetPreferencesKey("claimed_album_emojis")
+        private val COIN_TRANSACTIONS_KEY = stringPreferencesKey("coin_transactions")
+        const val ALBUM_EMOJI_REWARD_COINS = 10
         private val IN_PROGRESS_RUN_KEY = stringPreferencesKey("in_progress_run")
         private val DAILY_COMPLETED_DAY_KEY = longPreferencesKey("daily_completed_day")
         private val DAILY_BEST_TIME_KEY = intPreferencesKey("daily_best_time")
@@ -107,7 +108,7 @@ class ProgressRepository(private val context: Context) {
     }
 
     val themeMode: Flow<String> = dataStore.data.map { prefs ->
-        prefs[THEME_MODE_KEY] ?: "Default"
+        prefs[THEME_MODE_KEY] ?: "Light"
     }
 
     val selectedTheme: Flow<String> = dataStore.data.map { prefs ->
@@ -197,7 +198,8 @@ class ProgressRepository(private val context: Context) {
         )
 
         dataStore.edit { prefs ->
-            prefs[LAST_PLAYED_LEVEL_KEY] = safeLevel
+            val nextLevel = (safeLevel + 1).coerceAtMost(LevelCatalog.TOTAL_LEVELS)
+            prefs[LAST_PLAYED_LEVEL_KEY] = nextLevel
 
             val previous = LevelBest(
                 stars = prefs[starsKey(safeLevel)] ?: 0,
@@ -216,6 +218,7 @@ class ProgressRepository(private val context: Context) {
             prefs[bestTimeKey(safeLevel)] = outcome.bestTimeSec
             if (outcome.coinsAwarded > 0) {
                 prefs[COINS_KEY] = (prefs[COINS_KEY] ?: 0) + outcome.coinsAwarded
+                recordTx(prefs, "Level $safeLevel Cleared", outcome.coinsAwarded)
             }
 
             result = LevelRecordResult(
@@ -258,6 +261,7 @@ class ProgressRepository(private val context: Context) {
             }
             if (outcome.coinsAwarded > 0) {
                 prefs[COINS_KEY] = (prefs[COINS_KEY] ?: 0) + outcome.coinsAwarded
+                recordTx(prefs, "Daily Challenge Cleared", outcome.coinsAwarded)
             }
         }
         return outcome
@@ -279,14 +283,6 @@ class ProgressRepository(private val context: Context) {
 
     suspend fun setHapticsEnabled(enabled: Boolean) {
         dataStore.edit { it[HAPTICS_ENABLED_KEY] = enabled }
-    }
-
-    val isZenMode: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[IS_ZEN_MODE_KEY] ?: false
-    }
-
-    suspend fun setIsZenMode(enabled: Boolean) {
-        dataStore.edit { it[IS_ZEN_MODE_KEY] = enabled }
     }
 
     /**
@@ -351,6 +347,61 @@ class ProgressRepository(private val context: Context) {
         prefs[COINS_KEY] ?: 0
     }
 
+    /**
+     * Purchased hints, shared with the store and task rewards. A hint token is spent only when the
+     * player actually uses a hint on a level, and is consumed in one transaction so a double tap
+     * can never spend two.
+     */
+    val hintTokens: Flow<Int> = dataStore.data.map { prefs ->
+        (prefs[HINT_TOKENS_KEY] ?: 0).coerceAtLeast(0)
+    }
+
+    suspend fun addHintTokens(count: Int) {
+        if (count <= 0) return
+        dataStore.edit { prefs ->
+            prefs[HINT_TOKENS_KEY] = ((prefs[HINT_TOKENS_KEY] ?: 0) + count).coerceAtLeast(0)
+        }
+    }
+
+    /** Returns true only for the call that actually spent a token. */
+    suspend fun tryConsumeHintToken(): Boolean {
+        var consumed = false
+        dataStore.edit { prefs ->
+            val current = prefs[HINT_TOKENS_KEY] ?: 0
+            if (current > 0) {
+                prefs[HINT_TOKENS_KEY] = current - 1
+                consumed = true
+            }
+        }
+        return consumed
+    }
+
+    /** Permanent cosmetics, including reward-only ones and legacy per-theme purchase flags. */
+    val ownedCosmetics: Flow<Set<String>> = dataStore.data.map { prefs ->
+        val owned = prefs[OWNED_COSMETICS_KEY] ?: emptySet()
+        val legacy = prefs.asMap().keys
+            .filter { it.name.startsWith("theme_purchased_") && prefs[it] == true }
+            .map { it.name.removePrefix("theme_purchased_") }
+        (owned + legacy).toSet()
+    }.distinctUntilChanged()
+
+    suspend fun grantCosmetic(id: String) {
+        if (id.isBlank()) return
+        dataStore.edit { prefs ->
+            val current = prefs[OWNED_COSMETICS_KEY] ?: emptySet()
+            if (id !in current) prefs[OWNED_COSMETICS_KEY] = current + id
+        }
+    }
+
+    fun isCosmeticOwnedLegacy(cosmeticId: String): Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[GameKeys.legacyThemePurchased(cosmeticId)] ?: false
+    }
+
+    /** Last local day the app was seen; used to keep claims from moving backwards. */
+    val lastSeenDay: Flow<Long> = dataStore.data.map { prefs ->
+        prefs[LAST_SEEN_DAY_KEY] ?: 0L
+    }
+
     val totalCardFlips: Flow<Int> = dataStore.data.map { prefs ->
         prefs[TOTAL_FLIPS_KEY] ?: 0
     }
@@ -367,6 +418,10 @@ class ProgressRepository(private val context: Context) {
         prefs[COLLECTED_EMOJIS_KEY] ?: emptySet()
     }.distinctUntilChanged()
 
+    val claimedAlbumEmojis: Flow<Set<String>> = dataStore.data.map { prefs ->
+        prefs[CLAIMED_ALBUM_EMOJIS_KEY] ?: emptySet()
+    }.distinctUntilChanged()
+
     suspend fun collectEmoji(emojiId: String) {
         if (emojiId.isBlank()) return
         dataStore.edit { prefs ->
@@ -375,6 +430,71 @@ class ProgressRepository(private val context: Context) {
                 prefs[COLLECTED_EMOJIS_KEY] = current + emojiId
             }
         }
+    }
+
+    val coinTransactions: Flow<List<CoinTransaction>> = dataStore.data.map { prefs ->
+        CoinTransactionCodec.decode(prefs[COIN_TRANSACTIONS_KEY])
+    }.distinctUntilChanged()
+
+    private fun recordTx(prefs: MutablePreferences, title: String, amount: Int) {
+        if (amount == 0) return
+        val raw = prefs[COIN_TRANSACTIONS_KEY]
+        val current = CoinTransactionCodec.decode(raw)
+        val newTx = CoinTransaction(title = title, amount = amount, timestampMillis = System.currentTimeMillis())
+        prefs[COIN_TRANSACTIONS_KEY] = CoinTransactionCodec.encode(listOf(newTx) + current)
+    }
+
+    suspend fun claimAlbumEmoji(emojiId: String): Boolean {
+        if (emojiId.isBlank()) return false
+        var claimedNow = false
+        dataStore.edit { prefs ->
+            val collected = prefs[COLLECTED_EMOJIS_KEY] ?: emptySet()
+            val claimed = prefs[CLAIMED_ALBUM_EMOJIS_KEY] ?: emptySet()
+            if (emojiId in collected && emojiId !in claimed) {
+                prefs[CLAIMED_ALBUM_EMOJIS_KEY] = claimed + emojiId
+                val currentCoins = prefs[COINS_KEY] ?: 0
+                prefs[COINS_KEY] = currentCoins + ALBUM_EMOJI_REWARD_COINS
+                recordTx(prefs, "Emoji Unlocked ($emojiId)", ALBUM_EMOJI_REWARD_COINS)
+                claimedNow = true
+            }
+        }
+        return claimedNow
+    }
+
+    suspend fun claimAllAlbumEmojis(emojiIds: Set<String>): Int {
+        var totalCoinsAwarded = 0
+        dataStore.edit { prefs ->
+            val collected = prefs[COLLECTED_EMOJIS_KEY] ?: emptySet()
+            val claimed = prefs[CLAIMED_ALBUM_EMOJIS_KEY] ?: emptySet()
+            val toClaim = emojiIds.filter { it in collected && it !in claimed }
+            if (toClaim.isNotEmpty()) {
+                prefs[CLAIMED_ALBUM_EMOJIS_KEY] = claimed + toClaim
+                val currentCoins = prefs[COINS_KEY] ?: 0
+                totalCoinsAwarded = toClaim.size * ALBUM_EMOJI_REWARD_COINS
+                prefs[COINS_KEY] = currentCoins + totalCoinsAwarded
+                recordTx(prefs, "Album Emojis Unlocked (${toClaim.size})", totalCoinsAwarded)
+            }
+        }
+        return totalCoinsAwarded
+    }
+
+    fun isCategoryRewardClaimed(categoryName: String): Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[booleanPreferencesKey("album_category_claimed_$categoryName")] ?: false
+    }
+
+    suspend fun claimCategoryReward(categoryName: String, coinReward: Int = 100): Boolean {
+        var claimedNow = false
+        dataStore.edit { prefs ->
+            val key = booleanPreferencesKey("album_category_claimed_$categoryName")
+            if (prefs[key] != true) {
+                prefs[key] = true
+                val currentCoins = prefs[COINS_KEY] ?: 0
+                prefs[COINS_KEY] = currentCoins + coinReward
+                recordTx(prefs, "Category Completed ($categoryName)", coinReward)
+                claimedNow = true
+            }
+        }
+        return claimedNow
     }
 
     fun isRewardClaimed(rewardId: String): Flow<Boolean> = dataStore.data.map { prefs ->
@@ -400,6 +520,9 @@ class ProgressRepository(private val context: Context) {
                 prefs[key] = true
                 val currentCoins = prefs[COINS_KEY] ?: 0
                 prefs[COINS_KEY] = currentCoins + coinReward
+                if (coinReward > 0) {
+                    recordTx(prefs, "Mission Reward Claimed", coinReward)
+                }
 
                 if (rewardId.startsWith("daily_")) {
                     val count = prefs[intPreferencesKey("daily_tasks_claimed_count")] ?: 0
@@ -479,7 +602,6 @@ class ProgressRepository(private val context: Context) {
             )
             val haptics = prefs[HAPTICS_ENABLED_KEY] ?: true
             val theme = prefs[THEME_MODE_KEY] ?: "Default"
-            val zen = prefs[IS_ZEN_MODE_KEY] ?: false
             val assist = prefs[ASSIST_MODE_KEY] ?: false
             val welcomeSeen = prefs[WELCOME_SEEN_KEY] ?: false
             prefs.clear()
@@ -488,7 +610,6 @@ class ProgressRepository(private val context: Context) {
             prefs[EFFECTS_VOLUME_KEY] = audio.effects
             prefs[HAPTICS_ENABLED_KEY] = haptics
             prefs[THEME_MODE_KEY] = theme
-            prefs[IS_ZEN_MODE_KEY] = zen
             prefs[ASSIST_MODE_KEY] = assist
             if (welcomeSeen) prefs[WELCOME_SEEN_KEY] = true
             // Purchases are wiped with the rest of the progress, so the selection must fall back to

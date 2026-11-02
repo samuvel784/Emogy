@@ -50,6 +50,36 @@ class GameSnapshotTest {
     }
 
     @Test
+    fun v1SnapshotsDecodeWithZeroHintsUsed() {
+        val v2 = GameSnapshotCodec.encode(snapshot())
+        val lines = v2.lines()
+        // A v1 body has 11 fields: drop the hintsUsed field appended by v2.
+        val v1Body = lines[2].substringBeforeLast("|")
+        val raw = listOf(
+            lines[0].replace("v${GameSnapshotCodec.VERSION}", "v1"),
+            lines[1],
+            v1Body,
+        ).joinToString("\n") + "\n" + lines.drop(3).joinToString("\n")
+
+        val decoded = GameSnapshotCodec.decode(raw)
+
+        assertEquals(1, decoded?.version)
+        assertEquals(0, decoded?.hintsUsed)
+        assertEquals(snapshot().cards, decoded?.cards)
+        assertEquals(snapshot().moves, decoded?.moves)
+    }
+
+    @Test
+    fun hintsUsedRoundTripsAndIsClampedWhenNegative() {
+        val used = snapshot().copy(hintsUsed = 4)
+        val decoded = GameSnapshotCodec.decode(GameSnapshotCodec.encode(used))
+        assertEquals(4, decoded?.hintsUsed)
+
+        val negative = GameSnapshotCodec.encode(used).replace("|4\n", "|-4\n")
+        assertEquals(0, GameSnapshotCodec.decode(negative)?.hintsUsed)
+    }
+
+    @Test
     fun snapshotExpiresAfterTheResumeWindow() {
         val saved = snapshot()
         assertFalse(saved.isExpired(saved.savedAtMillis + RESUME_WINDOW_MILLIS))

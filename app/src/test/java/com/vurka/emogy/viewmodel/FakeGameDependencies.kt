@@ -5,6 +5,7 @@ import com.vurka.emogy.data.DailyChallengeRules
 import com.vurka.emogy.data.DailyOutcome
 import com.vurka.emogy.data.GameSnapshot
 import com.vurka.emogy.data.LevelRecordResult
+import com.vurka.emogy.data.tasks.LevelCompletedEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,25 +35,14 @@ class FakeFeedback : GameFeedback {
 }
 
 /**
- * [initialZen] = null leaves the flow cold until the test emits, mimicking DataStore before its
- * first read. A non-null value is replayed immediately.
- *
  * [initialAssist] mirrors the persisted Assist-mode toggle.
  */
 class FakeSettings(
-    initialZen: Boolean? = false,
     initialAssist: Boolean = false,
 ) : GameSettings {
     override val soundEnabled = MutableStateFlow(true)
     override val hapticsEnabled = MutableStateFlow(true)
     override val assistMode = MutableStateFlow(initialAssist)
-    val zen = MutableSharedFlow<Boolean>(replay = if (initialZen == null) 0 else 1)
-
-    init {
-        if (initialZen != null) zen.tryEmit(initialZen)
-    }
-
-    override val zenMode: Flow<Boolean> get() = zen
 }
 
 data class RecordedLevel(
@@ -147,5 +137,33 @@ class FakeSnapshotStore(var saved: GameSnapshot? = null) : GameSnapshotStore {
     }
     override suspend fun clear() {
         saved = null
+    }
+}
+
+/** Atomic fake wallet: a consume either spends one token or fails, never both. */
+class FakeHintWallet(initialTokens: Int = 0) : HintWallet {
+    private val state = MutableStateFlow(initialTokens.coerceAtLeast(0))
+    override val tokens: Flow<Int> = state
+    val current: Int get() = state.value
+    var consumeAttempts = 0
+        private set
+
+    override suspend fun tryConsume(): Boolean {
+        consumeAttempts++
+        val current = state.value
+        if (current <= 0) return false
+        state.value = current - 1
+        return true
+    }
+}
+
+class FakeGameplayTracker : GameplayTracker {
+    val events = mutableListOf<LevelCompletedEvent>()
+    var calls = 0
+        private set
+
+    override suspend fun record(event: LevelCompletedEvent) {
+        calls++
+        events += event
     }
 }

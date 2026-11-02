@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,8 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.VisibilityOff
+import com.vurka.emogy.ui.theme.VividRed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,11 +44,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -58,7 +61,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,14 +71,20 @@ import com.vurka.emogy.data.LevelCatalog
 import com.vurka.emogy.model.LevelConfig
 import com.vurka.emogy.model.MemoryCard
 import com.vurka.emogy.ui.components.AnimatedBackdrop
+import com.vurka.emogy.ui.components.EmogyPopupDialog
+import com.vurka.emogy.ui.theme.BoardVisuals
 import com.vurka.emogy.ui.theme.CardBackVisual
 import com.vurka.emogy.ui.theme.CardBackVisuals
+import com.vurka.emogy.ui.theme.CardFaceVisuals
 import com.vurka.emogy.ui.theme.Chrome
 import com.vurka.emogy.ui.theme.EmeraldGreen
+import com.vurka.emogy.ui.theme.EquippedCosmetics
 import com.vurka.emogy.ui.theme.GoldStar
 import com.vurka.emogy.ui.theme.LocalReduceMotion
+import com.vurka.emogy.ui.theme.MatchEffectVisuals
+import com.vurka.emogy.ui.theme.MatchSparkleVisual
 import com.vurka.emogy.ui.theme.RoyalBlue
-import com.vurka.emogy.ui.theme.VividRed
+import com.vurka.emogy.ui.theme.VictoryPalette
 import com.vurka.emogy.util.MusicManager
 import com.vurka.emogy.util.SoundManager
 import com.vurka.emogy.util.WorldMusic
@@ -84,6 +92,9 @@ import com.vurka.emogy.viewmodel.GameViewModel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 
 private val HudSurface = Chrome.TopBar
@@ -98,7 +109,11 @@ fun GameScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val themeId by viewModel.selectedThemeId.collectAsStateWithLifecycle()
-    val zen by viewModel.isZenMode.collectAsStateWithLifecycle()
+    val cardThemeId by viewModel.selectedCardThemeId.collectAsStateWithLifecycle()
+    val boardThemeId by viewModel.selectedBoardThemeId.collectAsStateWithLifecycle()
+    val matchEffectId by viewModel.selectedMatchEffectId.collectAsStateWithLifecycle()
+    val victoryEffectId by viewModel.selectedVictoryEffectId.collectAsStateWithLifecycle()
+    val hintTokens by viewModel.hintTokens.collectAsStateWithLifecycle()
     val assistEnabled by viewModel.isAssistMode.collectAsStateWithLifecycle()
     val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
     val levelNumber = viewModel.levelNumber
@@ -123,17 +138,17 @@ fun GameScreen(
     LaunchedEffect(levelNumber) {
         MusicManager.setGroup(WorldMusic.groupForLevel(levelNumber))
         // Give the persisted volume a couple of frames to arrive before making any noise.
-        delay(320)
+        delay(320.milliseconds)
         if (config.isBoss) SoundManager.playBoss(soundEnabled) else SoundManager.playWhoosh(soundEnabled)
     }
 
     // One rising bell per star, timed to follow the victory fanfare.
     LaunchedEffect(state.isWon, state.stars) {
         if (!state.isWon) return@LaunchedEffect
-        delay(1250)
+        delay(1250.milliseconds)
         repeat(state.stars.coerceIn(0, 3)) { index ->
             SoundManager.playStar(index, soundEnabled)
-            delay(260)
+            delay(260.milliseconds)
         }
     }
 
@@ -166,7 +181,7 @@ fun GameScreen(
     val shake = remember { Animatable(0f) }
     var lastMistakes by remember { mutableIntStateOf(0) }
     LaunchedEffect(state.mistakes) {
-        if (state.mistakes > lastMistakes && !reduceMotion) {
+        if ((state.mistakes > lastMistakes) && !reduceMotion) {
             val frames = listOf(16f, -16f, 11f, -11f, 6f, -6f, 0f)
             frames.forEach { target -> shake.animateTo(target, animationSpec = tween(durationMillis = 45)) }
         }
@@ -184,16 +199,37 @@ fun GameScreen(
             .take(8)
     }
     val baseBg = MaterialTheme.colorScheme.background
-    val backdropBrush = remember(world, baseBg) {
+    val worldBackdrop = remember(world, baseBg) {
         Brush.verticalGradient(
             listOf(
                 Color(world.colorB).copy(alpha = 0.55f).compositeOver(baseBg),
                 Color(world.colorA).copy(alpha = 0.20f).compositeOver(baseBg),
-                baseBg
+                baseBg,
             )
         )
     }
-    val backStyle = remember(themeId, isDark) { CardBackVisuals.forTheme(themeId, isDark) }
+    val equippedBoard = remember(boardThemeId) {
+        EquippedCosmetics.effectiveBoard(boardThemeId)
+    }
+    val backdropBrush = remember(equippedBoard, isDark, worldBackdrop) {
+        BoardVisuals.forTheme(equippedBoard, isDark, worldBackdrop)
+    }
+    val equippedCardBack = remember(themeId) { EquippedCosmetics.effectiveCardBack(themeId) }
+    val equippedCardFace = remember(cardThemeId) { EquippedCosmetics.effectiveCardTheme(cardThemeId) }
+    val matchSparkle = remember(matchEffectId) {
+        MatchEffectVisuals.forId(EquippedCosmetics.effectiveMatch(matchEffectId))
+    }
+    val victoryColors = remember(victoryEffectId) {
+        VictoryPalette.colorsFor(EquippedCosmetics.effectiveVictory(victoryEffectId))
+    }
+    val backStyle = remember(equippedCardBack, isDark) {
+        CardBackVisuals.forTheme(equippedCardBack, isDark)
+    }
+
+    // The HUD shows every hint the player can really use: the free allowance plus bought tokens.
+    val availableHints = (if (state.hintsLeft < 0) 0 else state.hintsLeft) + hintTokens
+    val noHintsMsg = stringResource(R.string.game_no_hints_msg)
+    val scope = rememberCoroutineScope()
 
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackdrop(brush = backdropBrush, emojis = worldEmojis, count = 12, alpha = 0.14f)
@@ -208,9 +244,9 @@ fun GameScreen(
                 title = topBarTitle,
                 subtitle = topBarSubtitle,
                 isBoss = config.isBoss,
-                hintsLeft = if (zen) -1 else state.hintsLeft,
+                hintsLeft = availableHints,
                 hintCooldown = state.hintCooldownRemainingSec,
-                hintEnabled = (!state.isHintOnCooldown) && (!state.isPreviewing) && (zen || (state.hintsLeft != 0)),
+                hintEnabled = (!state.isHintOnCooldown) && (!state.isPreviewing) && (!state.isGameOver),
                 showAssist = assistEnabled,
                 assistEnabled = assistEnabled &&
                     (!state.isPreviewing) &&
@@ -218,7 +254,19 @@ fun GameScreen(
                     (state.assistCooldownRemainingSec == 0),
                 assistCooldown = state.assistCooldownRemainingSec,
                 onBack = { viewModel.togglePause() },
-                onHint = viewModel::useHint,
+                onHint = {
+                    if (availableHints > 0) {
+                        viewModel.useHint()
+                    } else {
+                        scope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            snackbarHostState.showSnackbar(
+                                message = noHintsMsg,
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    }
+                },
                 onAssist = viewModel::useAssist,
                 onPause = viewModel::togglePause,
                 onRestart = viewModel::startNewGame
@@ -233,13 +281,13 @@ fun GameScreen(
             ) {
                 HudCard(
                     moves = state.moves,
-                    moveLimit = if (zen) 0 else config.moveLimit,
+                    moveLimit = config.moveLimit,
                     mistakes = state.mistakes,
                     matched = state.matchedPairsCount,
                     total = state.totalPairs,
                     timeElapsed = state.timeElapsedSec,
                     timeRemaining = state.timeRemainingSec,
-                    timeLimit = if (zen) 0 else config.timeLimitSec,
+                    timeLimit = config.timeLimitSec,
                     isDark = isDark
                 )
 
@@ -248,29 +296,36 @@ fun GameScreen(
                     matched = state.matchedPairsCount,
                     total = state.totalPairs,
                     timeRemaining = state.timeRemainingSec,
-                    timeLimit = if (zen) 0 else config.timeLimitSec,
+                    timeLimit = config.timeLimitSec,
                     isDark = isDark
                 )
 
                 Spacer(Modifier.height(8.dp))
                 StatusRow(
                     config = config,
-                    zen = zen,
                     isPreviewing = state.isPreviewing,
                     combo = state.combo,
                     shuffleCountdown = state.shuffleCountdownSec
                 )
 
                 Spacer(Modifier.height(8.dp))
-                CardGrid(
-                    cards = state.cards,
-                    assistCardIds = state.assistCardIds,
-                    backStyle = backStyle,
-                    isDark = isDark,
-                    shakeProvider = { shake.value },
-                    onCardClick = viewModel::onCardClicked,
-                    modifier = Modifier.weight(1f)
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    CardGrid(
+                        cards = state.cards,
+                        assistCardIds = state.assistCardIds,
+                        backStyle = backStyle,
+                        cardFaceThemeId = equippedCardFace,
+                        isDark = isDark,
+                        shakeProvider = { shake.value },
+                        onCardClick = viewModel::onCardClicked,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    MatchSparkle(
+                        trigger = state.matchedPairsCount,
+                        visual = matchSparkle,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
 
@@ -278,6 +333,40 @@ fun GameScreen(
         Box(Modifier.fillMaxSize()) {
             ComboPopup(combo = state.combo)
             ShufflePopup(shuffleCount = state.shuffleCount)
+        }
+
+        if (state.isPreviewing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 32.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Button(
+                    onClick = viewModel::manualFlipCards,
+                    modifier = Modifier
+                        .height(56.dp)
+                        .padding(horizontal = 32.dp)
+                        .testTag("flip_cards_button"),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = VividRed),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.VisibilityOff,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Flip Cards to Start",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp
+                    )
+                }
+            }
         }
 
         SnackbarHost(
@@ -288,156 +377,244 @@ fun GameScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
-        if (state.isGameOver && state.isWon) {
-            ConfettiCelebration(modifier = Modifier.fillMaxSize())
+        var showVictoryDialog by remember { mutableStateOf(value = false) }
 
-            VictoryDialog(
-                levelNumber = levelNumber,
-                worldName = viewModel.worldName,
-                isBoss = config.isBoss,
-                isDaily = viewModel.isDaily,
-                dailyCompleted = state.isFirstClear,
-                dailyLabel = dailyDateLabel,
-                stars = state.stars,
-                moves = state.moves,
-                mistakes = state.mistakes,
-                timeElapsedSec = state.timeElapsedSec,
-                maxCombo = state.maxCombo,
-                coinsAwarded = state.coinsAwarded,
-                isPersonalBest = state.isPersonalBest,
-                soundEnabled = soundEnabled,
-                onNext = { onNextLevel((levelNumber + 1).coerceAtMost(LevelCatalog.TOTAL_LEVELS)) },
-                onReplay = viewModel::startNewGame,
-                onWorldMap = onWorldMap,
-                onHome = onHome,
+        LaunchedEffect(state.isGameOver, state.isWon) {
+            if (state.isGameOver && state.isWon) {
+                showVictoryDialog = false
+                delay(1400.milliseconds)
+                showVictoryDialog = true
+            } else {
+                showVictoryDialog = false
+            }
+        }
+
+        if (state.isGameOver && state.isWon) {
+            ConfettiCelebration(
+                modifier = Modifier.fillMaxSize(),
+                colors = victoryColors,
             )
+
+            if (!showVictoryDialog) {
+                VictoryCelebrationBanner()
+            } else {
+                VictoryDialog(
+                    levelNumber = levelNumber,
+                    worldName = viewModel.worldName,
+                    isBoss = config.isBoss,
+                    isDaily = viewModel.isDaily,
+                    dailyCompleted = state.isFirstClear,
+                    dailyLabel = dailyDateLabel,
+                    stars = state.stars,
+                    moves = state.moves,
+                    mistakes = state.mistakes,
+                    timeElapsedSec = state.timeElapsedSec,
+                    maxCombo = state.maxCombo,
+                    coinsAwarded = state.coinsAwarded,
+                    isPersonalBest = state.isPersonalBest,
+                    soundEnabled = soundEnabled,
+                    onNext = { onNextLevel((levelNumber + 1).coerceAtMost(LevelCatalog.TOTAL_LEVELS)) },
+                    onReplay = viewModel::startNewGame,
+                    onWorldMap = onWorldMap,
+                    onHome = onHome,
+                )
+            }
         }
 
         if (state.isGameOver && !state.isWon) {
-            AlertDialog(
+            EmogyPopupDialog(
+                visible = true,
                 onDismissRequest = {},
-                title = {
-                    Text(
-                        if (state.lossReason == "moves") {
-                            stringResource(R.string.game_loss_moves_title)
-                        } else {
-                            stringResource(R.string.game_loss_time_title)
-                        },
-                        fontWeight = FontWeight.Bold, fontSize = 22.sp, color = VividRed
-                    )
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            if (state.lossReason == "moves") {
-                                stringResource(
-                                    R.string.game_loss_moves_body,
-                                    config.moveLimit,
-                                    state.matchedPairsCount,
-                                    state.totalPairs
-                                )
-                            } else {
-                                stringResource(
-                                    R.string.game_loss_time_body,
-                                    state.matchedPairsCount,
-                                    state.totalPairs
-                                )
-                            }
+                borderBrush = Brush.linearGradient(listOf(VividRed, Color(0xFFDC2626)))
+            ) {
+                Text("💔", fontSize = 48.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (state.lossReason == "moves") {
+                        stringResource(R.string.game_loss_moves_title)
+                    } else {
+                        stringResource(R.string.game_loss_time_title)
+                    },
+                    fontWeight = FontWeight.Black,
+                    fontSize = 24.sp,
+                    color = VividRed,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (state.lossReason == "moves") {
+                        stringResource(
+                            R.string.game_loss_moves_body,
+                            config.moveLimit,
+                            state.matchedPairsCount,
+                            state.totalPairs
                         )
-                        Text(
-                            when {
-                                config.isBoss ->
-                                    stringResource(R.string.game_loss_boss_tip)
-                                viewModel.isDaily ->
-                                    stringResource(R.string.game_loss_daily_tip)
-                                else ->
-                                    stringResource(R.string.game_loss_tip)
-                            },
-                            fontSize = 13.sp,
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                    } else {
+                        stringResource(
+                            R.string.game_loss_time_body,
+                            state.matchedPairsCount,
+                            state.totalPairs
                         )
-                    }
-                },
-                confirmButton = {
-                    Button(
+                    },
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when {
+                        config.isBoss -> stringResource(R.string.game_loss_boss_tip)
+                        viewModel.isDaily -> stringResource(R.string.game_loss_daily_tip)
+                        else -> stringResource(R.string.game_loss_tip)
+                    },
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF94A3B8)
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = {
+                        SoundManager.playTap(soundEnabled)
+                        viewModel.startNewGame()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("retry_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = VividRed),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(stringResource(R.string.action_retry), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    TextButton(
                         onClick = {
                             SoundManager.playTap(soundEnabled)
-                            viewModel.startNewGame()
-                        },
-                        modifier = Modifier.testTag("retry_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = VividRed)
+                            onWorldMap()
+                        }
                     ) {
-                        Text(stringResource(R.string.action_retry), color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.action_choose_level), color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
                     }
-                },
-                dismissButton = {
-                    Row {
-                        TextButton(
-                            onClick = {
-                                SoundManager.playTap(soundEnabled)
-                                onWorldMap()
-                            }
-                        ) {
-                            Text(stringResource(R.string.action_choose_level), color = RoyalBlue, fontWeight = FontWeight.SemiBold)
+                    TextButton(
+                        onClick = {
+                            SoundManager.playTap(soundEnabled)
+                            onBackPressed()
                         }
-                        TextButton(
-                            onClick = {
-                                SoundManager.playTap(soundEnabled)
-                                onBackPressed()
-                            }
-                        ) {
-                            Text(stringResource(R.string.action_exit), color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
-                        }
+                    ) {
+                        Text(stringResource(R.string.action_exit), color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
                     }
-                },
-                containerColor = MaterialTheme.colorScheme.surface,
-                textContentColor = MaterialTheme.colorScheme.onSurface,
-                titleContentColor = MaterialTheme.colorScheme.onSurface
-            )
+                }
+            }
         }
 
         if (state.isPaused) {
-            AlertDialog(
+            EmogyPopupDialog(
+                visible = true,
                 onDismissRequest = { viewModel.togglePause() },
-                title = {
-                    Text(
-                        if (state.wasRestored) stringResource(R.string.game_restored) else stringResource(R.string.game_paused),
-                        fontWeight = FontWeight.Bold,
-                        color = RoyalBlue,
-                    )
-                },
-                text = {
-                    Text(
-                        if (state.wasRestored) {
-                            stringResource(R.string.game_restored_body)
-                        } else {
-                            stringResource(R.string.game_paused_body)
-                        }
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { viewModel.togglePause() },
-                        modifier = Modifier.testTag("resume_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = RoyalBlue)
-                    ) {
-                        Text(stringResource(R.string.action_resume), color = Color.White)
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.abandonGame()
-                            onBackPressed()
-                        },
-                        modifier = Modifier.testTag("quit_button")
-                    ) {
-                        Text(stringResource(R.string.action_quit), color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surface,
-                textContentColor = MaterialTheme.colorScheme.onSurface,
-                titleContentColor = MaterialTheme.colorScheme.onSurface
+                borderBrush = Brush.linearGradient(listOf(RoyalBlue, Color(0xFF38BDF8)))
+            ) {
+                Text("⏸️", fontSize = 48.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (state.wasRestored) stringResource(R.string.game_restored) else stringResource(R.string.game_paused),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 24.sp,
+                    color = RoyalBlue
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (state.wasRestored) {
+                        stringResource(R.string.game_restored_body)
+                    } else {
+                        stringResource(R.string.game_paused_body)
+                    },
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = { viewModel.togglePause() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("resume_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = RoyalBlue),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(stringResource(R.string.action_resume), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = {
+                        viewModel.abandonGame()
+                        onBackPressed()
+                    },
+                    modifier = Modifier.testTag("quit_button")
+                ) {
+                    Text(stringResource(R.string.action_quit), color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VictoryCelebrationBanner() {
+    var scaleState by remember { mutableFloatStateOf(0.2f) }
+    val animatedScale by animateFloatAsState(
+        targetValue = scaleState,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "celebration_banner_scale"
+    )
+
+    LaunchedEffect(Unit) {
+        scaleState = 1.0f
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.4f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .scale(animatedScale)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFF1E293B), Color(0xFF0F172A))
+                    ),
+                    shape = RoundedCornerShape(24.dp)
+                )
+                .border(
+                    width = 2.dp,
+                    brush = Brush.linearGradient(listOf(GoldStar, Color(0xFFF59E0B))),
+                    shape = RoundedCornerShape(24.dp)
+                )
+                .padding(horizontal = 32.dp, vertical = 24.dp)
+        ) {
+            Text("🎉", fontSize = 64.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "VICTORY!",
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Black,
+                color = GoldStar
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Level Complete!",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
             )
         }
     }
@@ -468,177 +645,176 @@ private fun VictoryDialog(
     onWorldMap: () -> Unit,
     onHome: () -> Unit,
 ) {
-    val isFinalLevel = !isDaily && levelNumber >= LevelCatalog.TOTAL_LEVELS
+    val isFinalLevel = (!isDaily) && (levelNumber >= LevelCatalog.TOTAL_LEVELS)
 
-    Dialog(onDismissRequest = {}) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp,
+    EmogyPopupDialog(
+        visible = true,
+        onDismissRequest = {},
+        borderBrush = Brush.linearGradient(listOf(GoldStar, Color(0xFFF59E0B), EmeraldGreen))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Text(if (isDaily) "📅" else if (isFinalLevel) "🏔️" else "🎉", fontSize = 44.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                when {
+                    isDaily -> stringResource(R.string.game_victory_daily)
+                    isFinalLevel -> stringResource(R.string.game_victory_summit)
+                    else -> stringResource(R.string.game_victory)
+                },
+                fontWeight = FontWeight.Black,
+                fontSize = 26.sp,
+                color = VividRed
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                when {
+                    isDaily && dailyCompleted -> stringResource(
+                        R.string.game_victory_daily_first,
+                        DailyChallenge.REWARD_COINS
+                    )
+                    isDaily -> stringResource(R.string.game_victory_daily_done, dailyLabel)
+                    isBoss -> stringResource(R.string.game_victory_boss, levelNumber)
+                    else -> stringResource(R.string.game_victory_level, levelNumber, worldName)
+                },
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                color = if (MaterialTheme.colorScheme.background.red < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
+            )
+
+            if (!isDaily) {
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (index in 1..3) {
+                        VictoryStar(earned = index <= stars, delayMs = 250 + (index * 300))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Text(if (isDaily) "📅" else if (isFinalLevel) "🏔️" else "🎉", fontSize = 44.sp)
+                VictoryStat("⏱️", "${timeElapsedSec}s", stringResource(R.string.game_stat_time))
+                VictoryStat("👟", moves.toString(), stringResource(R.string.game_stat_moves))
+                VictoryStat("❌", mistakes.toString(), stringResource(R.string.game_stat_mistakes))
+                VictoryStat("🔥", "x$maxCombo", stringResource(R.string.game_stat_combo))
+            }
+
+            if (mistakes == 0) {
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    when {
-                        isDaily -> stringResource(R.string.game_victory_daily)
-                        isFinalLevel -> stringResource(R.string.game_victory_summit)
-                        else -> stringResource(R.string.game_victory)
-                    },
-                    fontWeight = FontWeight.Black,
-                    fontSize = 26.sp,
-                    color = VividRed
+                    stringResource(R.string.game_perfect),
+                    fontWeight = FontWeight.Bold,
+                    color = EmeraldGreen,
+                    fontSize = 14.sp
                 )
+            }
+            if (isPersonalBest) {
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    when {
-                        isDaily && dailyCompleted -> stringResource(
-                            R.string.game_victory_daily_first,
-                            DailyChallenge.REWARD_COINS
-                        )
-                        isDaily -> stringResource(R.string.game_victory_daily_done, dailyLabel)
-                        isBoss -> stringResource(R.string.game_victory_boss, levelNumber)
-                        else -> stringResource(R.string.game_victory_level, levelNumber, worldName)
+                    if (isDaily) stringResource(R.string.game_new_daily_best) else stringResource(R.string.game_new_best),
+                    fontWeight = FontWeight.Bold,
+                    color = RoyalBlue,
+                    fontSize = 13.sp
+                )
+            }
+            if (coinsAwarded > 0) {
+                Spacer(Modifier.height(6.dp))
+                Text(stringResource(R.string.game_coins, coinsAwarded), fontWeight = FontWeight.Bold, color = GoldStar, fontSize = 14.sp)
+            }
+
+            Spacer(Modifier.height(20.dp))
+            if (isDaily) {
+                Button(
+                    onClick = {
+                        SoundManager.playTap(soundEnabled)
+                        onHome()
                     },
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("daily_done_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(stringResource(R.string.action_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            } else if (isFinalLevel) {
+                Text(
+                    stringResource(R.string.game_finished_all, LevelCatalog.TOTAL_LEVELS),
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                     color = if (MaterialTheme.colorScheme.background.red < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
                 )
-
-                if (!isDaily) {
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        for (index in 1..3) {
-                            VictoryStar(earned = index <= stars, delayMs = 250 + (index * 300))
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+            } else {
+                Button(
+                    onClick = {
+                        SoundManager.playTap(soundEnabled)
+                        onNext()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("next_level_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = VividRed),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    VictoryStat("⏱️", "${timeElapsedSec}s", stringResource(R.string.game_stat_time))
-                    VictoryStat("👟", moves.toString(), stringResource(R.string.game_stat_moves))
-                    VictoryStat("❌", mistakes.toString(), stringResource(R.string.game_stat_mistakes))
-                    VictoryStat("🔥", "x$maxCombo", stringResource(R.string.game_stat_combo))
-                }
-
-                if (mistakes == 0) {
-                    Spacer(Modifier.height(12.dp))
                     Text(
-                        stringResource(R.string.game_perfect),
+                        stringResource(R.string.game_next_level, levelNumber + 1),
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        color = EmeraldGreen,
-                        fontSize = 14.sp
+                        fontSize = 16.sp
                     )
                 }
-                if (isPersonalBest) {
-                    Spacer(Modifier.height(6.dp))
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                TextButton(
+                    onClick = {
+                        SoundManager.playTap(soundEnabled)
+                        onReplay()
+                    },
+                    modifier = Modifier.testTag("replay_button")
+                ) {
                     Text(
-                        if (isDaily) stringResource(R.string.game_new_daily_best) else stringResource(R.string.game_new_best),
-                        fontWeight = FontWeight.Bold,
+                        if (isDaily) stringResource(R.string.game_play_again) else stringResource(R.string.game_replay),
                         color = RoyalBlue,
-                        fontSize = 13.sp
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-                if (coinsAwarded > 0) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(stringResource(R.string.game_coins, coinsAwarded), fontWeight = FontWeight.Bold, color = GoldStar, fontSize = 14.sp)
+                TextButton(
+                    onClick = {
+                        SoundManager.playTap(soundEnabled)
+                        onWorldMap()
+                    },
+                    modifier = Modifier.testTag("victory_map_button")
+                ) {
+                    Text(
+                        if (isDaily) stringResource(R.string.action_choose_level) else stringResource(R.string.game_world_map),
+                        color = RoyalBlue,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
-
-                Spacer(Modifier.height(20.dp))
-                if (isDaily) {
-                    Button(
+                if (!isDaily) {
+                    TextButton(
                         onClick = {
                             SoundManager.playTap(soundEnabled)
                             onHome()
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("daily_done_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                        shape = RoundedCornerShape(16.dp)
+                        modifier = Modifier.testTag("victory_home_button")
                     ) {
-                        Text(stringResource(R.string.action_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    }
-                } else if (isFinalLevel) {
-                    Text(
-                        stringResource(R.string.game_finished_all, LevelCatalog.TOTAL_LEVELS),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        color = if (MaterialTheme.colorScheme.background.red < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
-                    )
-                } else {
-                    Button(
-                        onClick = {
-                            SoundManager.playTap(soundEnabled)
-                            onNext()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("next_level_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = VividRed),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text(
-                            stringResource(R.string.game_next_level, levelNumber + 1),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    TextButton(
-                        onClick = {
-                            SoundManager.playTap(soundEnabled)
-                            onReplay()
-                        },
-                        modifier = Modifier.testTag("replay_button")
-                    ) {
-                        Text(
-                            if (isDaily) stringResource(R.string.game_play_again) else stringResource(R.string.game_replay),
-                            color = RoyalBlue,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    TextButton(
-                        onClick = {
-                            SoundManager.playTap(soundEnabled)
-                            onWorldMap()
-                        },
-                        modifier = Modifier.testTag("victory_map_button")
-                    ) {
-                        Text(
-                            if (isDaily) stringResource(R.string.action_choose_level) else stringResource(R.string.game_world_map),
-                            color = RoyalBlue,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    if (!isDaily) {
-                        TextButton(
-                            onClick = {
-                                SoundManager.playTap(soundEnabled)
-                                onHome()
-                            },
-                            modifier = Modifier.testTag("victory_home_button")
-                        ) {
-                            Text(stringResource(R.string.game_home), color = RoyalBlue, fontWeight = FontWeight.SemiBold)
-                        }
+                        Text(stringResource(R.string.game_home), color = RoyalBlue, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -856,7 +1032,6 @@ private fun ProgressAndTime(matched: Int, total: Int, timeRemaining: Int, timeLi
 @Composable
 private fun StatusRow(
     config: LevelConfig,
-    zen: Boolean,
     isPreviewing: Boolean,
     combo: Int,
     shuffleCountdown: Int
@@ -871,12 +1046,11 @@ private fun StatusRow(
         if (isPreviewing) {
             RuleChip(stringResource(R.string.status_memorize), GoldStar)
         } else {
-            if (zen) RuleChip(stringResource(R.string.status_zen), EmeraldGreen)
             if (combo >= 2) RuleChip(stringResource(R.string.status_combo, combo), Color(0xFFF97316))
-            if ((!zen) && (config.shuffleIntervalSec > 0)) {
+            if (config.shuffleIntervalSec > 0) {
                 RuleChip(stringResource(R.string.status_shuffle, shuffleCountdown), if (shuffleCountdown <= 5) VividRed else Color(0xFF8B5CF6))
             }
-            if ((!zen) && (config.autoHideMs > 0)) {
+            if (config.autoHideMs > 0) {
                 RuleChip(stringResource(R.string.status_hides, "%.1f".format(config.autoHideMs / 1000f)), Color(0xFF06B6D4))
             }
         }
@@ -956,11 +1130,60 @@ private fun BoxScope.ShufflePopup(shuffleCount: Int) {
 // Card grid
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Short radial burst played on every real match. The animation progress is only read inside the
+ * draw lambda, so a sparkle never recomposes the board.
+ */
+@Composable
+private fun MatchSparkle(
+    trigger: Int,
+    visual: MatchSparkleVisual,
+    modifier: Modifier = Modifier,
+) {
+    if (!visual.active) return
+    if (LocalReduceMotion.current) return
+    val progress = remember { Animatable(0f) }
+    var lastTrigger by remember { mutableIntStateOf(trigger) }
+    LaunchedEffect(trigger) {
+        if (trigger > lastTrigger) {
+            progress.snapTo(0f)
+            progress.animateTo(1f, tween(durationMillis = 650, easing = FastOutSlowInEasing))
+        }
+        lastTrigger = trigger
+    }
+    Canvas(modifier) {
+        val p = progress.value
+        if ((p <= 0f) || (p >= 1f)) return@Canvas
+        val colors = visual.colors.ifEmpty { listOf(GoldStar) }
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val alpha = (1f - p).coerceIn(0f, 1f)
+        val count = 16
+        repeat(count) { index ->
+            val angle = index * (2.0 * PI / count) + p * 0.4
+            val distance = size.minDimension * (0.06f + 0.40f * p)
+            drawCircle(
+                color = colors[index % colors.size].copy(alpha = alpha),
+                radius = size.minDimension * 0.014f * (1f - p * 0.4f),
+                center = Offset(
+                    center.x + cos(angle).toFloat() * distance,
+                    center.y + sin(angle).toFloat() * distance,
+                ),
+            )
+        }
+        drawCircle(
+            color = colors.first().copy(alpha = alpha * 0.5f),
+            radius = size.minDimension * 0.05f * (1f - p),
+            center = center,
+        )
+    }
+}
+
 @Composable
 private fun CardGrid(
     cards: List<MemoryCard>,
     assistCardIds: Set<Int>,
     backStyle: CardBackVisual,
+    cardFaceThemeId: String,
     isDark: Boolean,
     shakeProvider: () -> Float,
     onCardClick: (Int) -> Unit,
@@ -976,10 +1199,14 @@ private fun CardGrid(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(cards, key = { it.id }) { card ->
+        items(
+            items = cards,
+            key = { it.id }
+        ) { card ->
             MemoryCardItem(
                 card = card,
                 backStyle = backStyle,
+                cardFaceThemeId = cardFaceThemeId,
                 isDark = isDark,
                 emojiSize = emojiSize,
                 isAssistRevealed = card.id in assistCardIds,
@@ -1000,6 +1227,7 @@ private fun CardGrid(
 fun MemoryCardItem(
     card: MemoryCard,
     backStyle: CardBackVisual,
+    cardFaceThemeId: String,
     isDark: Boolean,
     emojiSize: TextUnit,
     modifier: Modifier = Modifier,
@@ -1036,17 +1264,14 @@ fun MemoryCardItem(
     }
 
     val shape = remember { RoundedCornerShape(18.dp) }
-    val frontBrush: Brush = remember(card.isMatched, isDark) {
-        when {
-            card.isMatched -> Brush.linearGradient(listOf(Color(0xFF10B981), Color(0xFF34D399)))
-            isDark -> SolidColor(Color(0xFF24325B))
-            else -> SolidColor(Color.White)
-        }
+    val faceStyle = remember(cardFaceThemeId, isDark, card.isMatched) {
+        CardFaceVisuals.forTheme(cardFaceThemeId, isDark, card.isMatched)
     }
+    val frontBrush: Brush = faceStyle.gradient
     val frontBorder = when {
-        card.isMatched -> BorderStroke(2.5.dp, Color(0xFFA7F3D0))
+        card.isMatched -> BorderStroke(2.5.dp, faceStyle.border)
         isAssistRevealed -> BorderStroke(2.5.dp, Color(0xFFFBBF24))
-        else -> BorderStroke(1.5.dp, RoyalBlue)
+        else -> BorderStroke(1.5.dp, faceStyle.border)
     }
     val description = when {
         card.isMatched -> stringResource(R.string.cd_card_matched, card.emoji)

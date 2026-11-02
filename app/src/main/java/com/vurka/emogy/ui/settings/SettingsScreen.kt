@@ -25,12 +25,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vurka.emogy.R
 import com.vurka.emogy.ui.components.HowToPlayBottomSheet
+import com.vurka.emogy.ui.components.EmogyPopupDialog
 import com.vurka.emogy.ui.components.AppTopBar
 import com.vurka.emogy.ui.theme.EmeraldGreen
+import com.vurka.emogy.ui.theme.GoldStar
 import com.vurka.emogy.ui.theme.RoyalBlue
 import com.vurka.emogy.ui.theme.VividRed
 import com.vurka.emogy.util.SoundManager
@@ -49,7 +52,6 @@ fun SettingsScreen(
     val effectsVolume by viewModel.effectsVolume.collectAsState()
     val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
-    val isZenMode by viewModel.isZenMode.collectAsState()
     val isAssistMode by viewModel.isAssistMode.collectAsState()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
 
@@ -62,68 +64,97 @@ fun SettingsScreen(
     }
 
     if (showResetDialog) {
-        AlertDialog(
+        EmogyPopupDialog(
+            visible = true,
             onDismissRequest = { showResetDialog = false },
-            title = { Text(stringResource(R.string.settings_reset_title), fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.settings_reset_clears))
-                    Text(stringResource(R.string.settings_reset_levels), fontSize = 13.sp)
-                    Text(stringResource(R.string.settings_reset_coins), fontSize = 13.sp)
-                    Text(stringResource(R.string.settings_reset_games), fontSize = 13.sp)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(
-                            R.string.settings_reset_keep,
-                            com.vurka.emogy.data.LevelCatalog.TOTAL_LEVELS
-                        ),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.resetAllProgress()
-                        showResetDialog = false
-                        showResetDone = true
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = VividRed),
-                    modifier = Modifier.testTag("confirm_reset_button")
-                ) {
-                    Text(stringResource(R.string.action_reset), color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text(stringResource(R.string.action_cancel), color = RoyalBlue)
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            textContentColor = MaterialTheme.colorScheme.onSurface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface
-        )
+            borderBrush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(VividRed, Color(0xFFF43F5E)))
+        ) {
+            Text("⚠️", fontSize = 48.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_reset_title),
+                fontWeight = FontWeight.Black,
+                fontSize = 22.sp,
+                color = VividRed
+            )
+            Spacer(Modifier.height(12.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(stringResource(R.string.settings_reset_clears), color = Color.White, fontSize = 14.sp)
+                Text(stringResource(R.string.settings_reset_levels), fontSize = 13.sp, color = Color(0xFF94A3B8))
+                Text(stringResource(R.string.settings_reset_coins), fontSize = 13.sp, color = Color(0xFF94A3B8))
+                Text(stringResource(R.string.settings_reset_games), fontSize = 13.sp, color = Color(0xFF94A3B8))
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(
+                        R.string.settings_reset_keep,
+                        com.vurka.emogy.data.LevelCatalog.TOTAL_LEVELS
+                    ),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GoldStar
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = {
+                    viewModel.resetAllProgress()
+                    showResetDialog = false
+                    showResetDone = true
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = VividRed),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("confirm_reset_button"),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(stringResource(R.string.action_reset), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { showResetDialog = false }) {
+                Text(stringResource(R.string.action_cancel), color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 
     if (showResetDone) {
-        AlertDialog(
+        EmogyPopupDialog(
+            visible = true,
             onDismissRequest = { showResetDone = false },
-            title = { Text(stringResource(R.string.settings_reset_done_title), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.settings_reset_done_body)) },
-            confirmButton = {
-                Button(
-                    onClick = { showResetDone = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = RoyalBlue),
-                    modifier = Modifier.testTag("reset_done_button")
-                ) {
-                    Text(stringResource(R.string.action_ok), color = Color.White)
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            textContentColor = MaterialTheme.colorScheme.onSurface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface
-        )
+            borderBrush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(EmeraldGreen, Color(0xFF10B981)))
+        ) {
+            Text("✅", fontSize = 48.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_reset_done_title),
+                fontWeight = FontWeight.Black,
+                fontSize = 22.sp,
+                color = EmeraldGreen
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_reset_done_body),
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                color = Color.White
+            )
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = { showResetDone = false },
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("reset_done_button"),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(stringResource(R.string.action_ok), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
     }
 
     Scaffold(
@@ -349,45 +380,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Zen Mode Toggle (relaxed: no timers, no move limits)
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg),
-                border = cardBorder,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_zen),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            stringResource(R.string.settings_zen_desc),
-                            fontSize = 13.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-                    }
-                    Switch(
-                        checked = isZenMode,
-                        onCheckedChange = { viewModel.setIsZenMode(it) },
-                        modifier = Modifier.testTag("zen_switch"),
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = EmeraldGreen
-                        )
-                    )
-                }
-            }
-
             // Assist Mode Toggle (opt-in: reveal one matching pair on request)
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -450,7 +442,6 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     val themeModes = listOf(
-                        "Default" to R.string.theme_default,
                         "Light" to R.string.theme_light,
                         "Dark" to R.string.theme_dark,
                     )

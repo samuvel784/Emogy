@@ -26,6 +26,49 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /**
+ * Full-screen gradient with constant (static) emojis in the background (no movement).
+ */
+@Composable
+fun ConstantBackdrop(
+    brush: Brush,
+    emojis: List<String>,
+    modifier: Modifier = Modifier,
+    count: Int = 10,
+    alpha: Float = 0.15f
+) {
+    val measurer = rememberTextMeasurer()
+    val glyphs = remember(emojis) {
+        emojis.map { measurer.measure(it, TextStyle(fontSize = 34.sp)) }
+    }
+    val positions = remember(count, emojis) {
+        val r = Random(42)
+        List(count) {
+            Triple(
+                r.nextFloat(), // x (0..1)
+                r.nextFloat(), // y (0..1)
+                (r.nextFloat() - 0.5f) * 40f // rotation
+            )
+        }
+    }
+    Canvas(modifier.fillMaxSize()) {
+        drawRect(brush)
+        if (glyphs.isEmpty()) return@Canvas
+        positions.forEachIndexed { i, (x, y, rot) ->
+            val g = glyphs[i % glyphs.size]
+            val cx = x * size.width
+            val cy = y * size.height
+            rotate(rot, Offset(cx, cy)) {
+                drawText(
+                    g,
+                    topLeft = Offset(cx - g.size.width / 2f, cy - g.size.height / 2f),
+                    alpha = alpha
+                )
+            }
+        }
+    }
+}
+
+/**
  * Full-screen gradient with softly drifting emoji. All per-frame work happens in the draw phase
  * (the animated value is only read inside Canvas), so it never triggers recomposition.
  */

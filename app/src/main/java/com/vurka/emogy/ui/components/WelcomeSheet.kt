@@ -25,7 +25,6 @@ import com.vurka.emogy.ui.theme.VividRed
  * One-time first-run introduction. It is intentionally short: three ideas, a Start button and a
  * link to the full rules. Dismissing it (button, swipe or back) counts as seen.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WelcomeSheet(
     onDismiss: () -> Unit,
@@ -33,17 +32,14 @@ fun WelcomeSheet(
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
 
-    ModalBottomSheet(
+    EmogyPopupDialog(
+        visible = true,
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0xFF94A3B8)) },
         modifier = Modifier.testTag("welcome_sheet")
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 28.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -54,15 +50,15 @@ fun WelcomeSheet(
             ) {
                 Text(
                     text = stringResource(R.string.welcome_title),
-                    fontSize = 23.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 )
                 IconButton(onClick = onDismiss, modifier = Modifier.testTag("welcome_close_button")) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.cd_close_welcome),
-                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        tint = Color(0xFF94A3B8)
                     )
                 }
             }
@@ -126,11 +122,6 @@ fun WelcomeSheet(
                     color = if (isDark) GoldStar else Color(0xFFB45309)
                 )
             }
-            Text(
-                text = stringResource(R.string.offline_badge),
-                fontSize = 11.sp,
-                color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
-            )
         }
     }
 }

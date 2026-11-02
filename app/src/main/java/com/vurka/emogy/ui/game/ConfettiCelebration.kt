@@ -44,12 +44,18 @@ private val ConfettiColors = listOf(
  * Physics based confetti: two cannons at the bottom corners fire two volleys, pieces fly up,
  * slow down with air drag, then flutter down under gravity while flipping in 3D and fading out.
  * The animation clock is only read inside the Canvas draw lambda, so nothing recomposes per frame.
+ *
+ * [colors] is the equipped victory palette; the default keeps the classic celebration.
  */
 @Composable
-fun ConfettiCelebration(modifier: Modifier = Modifier) {
+fun ConfettiCelebration(
+    modifier: Modifier = Modifier,
+    colors: List<Color> = ConfettiColors,
+) {
     // Confetti is pure decoration; skip it entirely under reduced motion.
     if (LocalReduceMotion.current) return
-    val pieces = remember {
+    val palette = colors.ifEmpty { ConfettiColors }
+    val pieces = remember(palette) {
         val r = Random(System.nanoTime())
         List(150) { i ->
             val fromLeft = i % 2 == 0
@@ -60,7 +66,7 @@ fun ConfettiCelebration(modifier: Modifier = Modifier) {
                 delaySec = if (i < 90) r.nextFloat() * 0.15f else 0.7f + r.nextFloat() * 0.25f,
                 lifeSec = 3.2f + r.nextFloat() * 1.3f,
                 size = 0.7f + r.nextFloat() * 0.9f,
-                color = ConfettiColors[r.nextInt(ConfettiColors.size)],
+                color = palette[r.nextInt(palette.size)],
                 spin = (r.nextFloat() - 0.5f) * 14f,
                 phase = r.nextFloat() * 6.28f,
                 ribbon = r.nextBoolean()

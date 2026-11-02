@@ -57,13 +57,13 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun MemoryMatchTheme(
-    themeMode: String = "Default",
+    themeMode: String = "Light",
     content: @Composable () -> Unit
 ) {
     val colorScheme = when (themeMode) {
-        "Light" -> LightColorScheme
         "Dark" -> DarkColorScheme
-        else -> DefaultColorScheme
+        "Default" -> LightColorScheme
+        else -> LightColorScheme
     }
 
     val reduceMotion = rememberReduceMotion()
