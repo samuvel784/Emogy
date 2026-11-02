@@ -227,7 +227,7 @@ fun GameScreen(
     }
 
     // The HUD shows every hint the player can really use: the free allowance plus bought tokens.
-    val availableHints = (if (state.hintsLeft < 0) 0 else state.hintsLeft) + hintTokens
+    val availableHints = if (state.hintsLeft < 0) -1 else state.hintsLeft + hintTokens
     val noHintsMsg = stringResource(R.string.game_no_hints_msg)
     val scope = rememberCoroutineScope()
 
@@ -255,7 +255,7 @@ fun GameScreen(
                 assistCooldown = state.assistCooldownRemainingSec,
                 onBack = { viewModel.togglePause() },
                 onHint = {
-                    if (availableHints > 0) {
+                    if (state.hintsLeft < 0 || availableHints > 0) {
                         viewModel.useHint()
                     } else {
                         scope.launch {
@@ -881,7 +881,8 @@ private fun GameTopBar(
                 )
                 val badge = when {
                     hintCooldown > 0 -> hintCooldown.toString()
-                    hintsLeft >= 0 -> hintsLeft.toString()
+                    hintsLeft < 0 -> "∞"
+                    hintsLeft > 0 -> hintsLeft.toString()
                     else -> null
                 }
                 if (badge != null) {

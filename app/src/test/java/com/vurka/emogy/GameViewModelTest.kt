@@ -190,6 +190,25 @@ class GameViewModelTest {
     }
 
     @Test
+    fun unlimitedHintsNeverDecrement() = runTest(dispatcher) {
+        val vm = newGame(level = 1)
+        assertEquals(-1, vm.state.value.hintsLeft)
+
+        vm.useHint()
+        assertEquals(-1, vm.state.value.hintsLeft)
+        assertTrue(vm.state.value.isHintOnCooldown)
+
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertFalse(vm.state.value.isHintOnCooldown)
+
+        vm.useHint()
+        assertEquals(-1, vm.state.value.hintsLeft)
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
     fun bossHintsCannotBeUsed() = runTest(dispatcher) {
         val vm = newGame(level = 25)
         assertEquals(0, vm.state.value.hintsLeft)

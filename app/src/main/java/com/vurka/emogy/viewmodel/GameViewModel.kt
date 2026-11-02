@@ -359,7 +359,7 @@ class GameViewModel(
         val current = _state.value
         if (current.isPreviewing || current.isPaused || current.isGameOver || current.isHintOnCooldown) return
 
-        val freeAvailable = current.hintsLeft > 0
+        val freeAvailable = current.hintsLeft < 0 || current.hintsLeft > 0
         val tokenAvailable = hintTokens.value > 0
         if (!freeAvailable && !tokenAvailable) return
 
