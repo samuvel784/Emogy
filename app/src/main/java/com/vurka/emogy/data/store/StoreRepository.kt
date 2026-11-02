@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.vurka.emogy.data.EmojiCatalog
 import com.vurka.emogy.data.GameKeys
@@ -14,8 +13,7 @@ import kotlinx.coroutines.flow.map
 
 data class MysteryBoxData(
     val hints: Int = 15,
-    val bonusCoins: Int = 500,
-    val streakBonus: Int = 2,
+    val bonusCoins: Int = 750,
     val unlockedEmoji: String? = null,
 )
 
@@ -93,15 +91,11 @@ class StoreRepository(private val dataStore: DataStore<Preferences>) {
             var mysteryData: MysteryBoxData? = null
             if (itemId == "bundle_mystery_box") {
                 val mysteryHints = 15
-                val bonusCoins = 500
-                val streakBonus = 2
+                val bonusCoins = 750
 
                 prefs[GameKeys.HINT_TOKENS] = (prefs[GameKeys.HINT_TOKENS] ?: 0) + mysteryHints
                 prefs[GameKeys.COINS] = (prefs[GameKeys.COINS] ?: 0) + bonusCoins
                 recordTx(prefs, "Mystery Box Bonus Coins", bonusCoins)
-                val streakKey = intPreferencesKey("daily_streak")
-                val currentStreak = prefs[streakKey] ?: 0
-                prefs[streakKey] = currentStreak + streakBonus
 
                 // Unlock 1 random uncollected emoji
                 val catalog = EmojiCatalog.items.map { it.id }.toSet()
@@ -116,7 +110,6 @@ class StoreRepository(private val dataStore: DataStore<Preferences>) {
                 mysteryData = MysteryBoxData(
                     hints = mysteryHints,
                     bonusCoins = bonusCoins,
-                    streakBonus = streakBonus,
                     unlockedEmoji = randomEmoji,
                 )
             }

@@ -113,7 +113,6 @@ fun StoreScreen(
                     Text("You received:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text("💡 +${box.hints} Hints", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = BrightCyan)
                     Text("🪙 +${box.bonusCoins} Bonus Coins", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = GoldStar)
-                    Text("🔥 +${box.streakBonus} Streak Fire Days", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF4D6D))
                     box.unlockedEmoji?.let { emoji ->
                         Text("✨ Unlocked Emoji: $emoji", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = EmeraldGreen)
                     }

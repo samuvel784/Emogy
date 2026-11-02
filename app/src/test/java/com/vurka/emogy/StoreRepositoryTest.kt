@@ -193,4 +193,18 @@ class StoreRepositoryTest {
             assertEquals(null, StoreCatalog.item(cosmetic.id))
         }
     }
+
+    @Test
+    fun `mystery box grants hints and bonus coins without touching streak preferences`() = runBlocking {
+        seedCoins(3_000)
+
+        val result = repository.purchase("bundle_mystery_box")
+
+        assertTrue(result is PurchaseResult.Success)
+        val success = result as PurchaseResult.Success
+        assertEquals(15, success.mysteryBox?.hints)
+        assertEquals(750, success.mysteryBox?.bonusCoins)
+        assertEquals(15, hints())
+        assertEquals(1_750, success.remainingCoins)
+    }
 }
