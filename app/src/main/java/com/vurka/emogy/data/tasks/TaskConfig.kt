@@ -252,7 +252,20 @@ object TaskConfig {
         val rng = Random(seed)
         val instances = when (period) {
             TaskPeriod.DAILY -> build(dailyEasy, 2, dailyMedium, 2, dailyHard, 1, rng)
-            TaskPeriod.WEEKLY -> build(weeklyEasy, 2, weeklyMedium, 3, weeklyHard, 1, rng)
+            TaskPeriod.WEEKLY -> {
+                val instances = build(weeklyEasy, 2, weeklyMedium, 3, weeklyHard, 1, rng).toMutableList()
+                if (instances.none { it.definition.reward.hints > 0 }) {
+                    val hintDef = weeklyHard.first { it.reward.hints > 0 }
+                    if (!instances.any { it.definition.id == hintDef.id }) {
+                        if (instances.isNotEmpty()) {
+                            instances[instances.lastIndex] = TaskInstance(hintDef)
+                        } else {
+                            instances.add(TaskInstance(hintDef))
+                        }
+                    }
+                }
+                instances
+            }
             TaskPeriod.MONTHLY -> build(monthlyPool, 5, emptyList(), 0, emptyList(), 0, rng)
         }
         return TaskPeriodState(

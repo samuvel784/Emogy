@@ -217,7 +217,7 @@ class ProgressRepository(private val context: Context) {
             if (outcome.bestMoves > 0) prefs[bestMovesKey(safeLevel)] = outcome.bestMoves
             prefs[bestTimeKey(safeLevel)] = outcome.bestTimeSec
             if (outcome.coinsAwarded > 0) {
-                prefs[COINS_KEY] = (prefs[COINS_KEY] ?: 0) + outcome.coinsAwarded
+                prefs[COINS_KEY] = ((prefs[COINS_KEY] ?: 0) + outcome.coinsAwarded).coerceIn(0, GameKeys.MAX_COINS)
                 recordTx(prefs, "Level $safeLevel Cleared", outcome.coinsAwarded)
             }
 
@@ -260,7 +260,7 @@ class ProgressRepository(private val context: Context) {
                 prefs[DAILY_COMPLETED_COUNT_KEY] = previous.completedCount + 1
             }
             if (outcome.coinsAwarded > 0) {
-                prefs[COINS_KEY] = (prefs[COINS_KEY] ?: 0) + outcome.coinsAwarded
+                prefs[COINS_KEY] = ((prefs[COINS_KEY] ?: 0) + outcome.coinsAwarded).coerceIn(0, GameKeys.MAX_COINS)
                 recordTx(prefs, "Daily Challenge Cleared", outcome.coinsAwarded)
             }
         }
@@ -453,7 +453,7 @@ class ProgressRepository(private val context: Context) {
             if (emojiId in collected && emojiId !in claimed) {
                 prefs[CLAIMED_ALBUM_EMOJIS_KEY] = claimed + emojiId
                 val currentCoins = prefs[COINS_KEY] ?: 0
-                prefs[COINS_KEY] = currentCoins + ALBUM_EMOJI_REWARD_COINS
+                prefs[COINS_KEY] = (currentCoins + ALBUM_EMOJI_REWARD_COINS).coerceIn(0, GameKeys.MAX_COINS)
                 recordTx(prefs, "Emoji Unlocked ($emojiId)", ALBUM_EMOJI_REWARD_COINS)
                 claimedNow = true
             }
@@ -471,7 +471,7 @@ class ProgressRepository(private val context: Context) {
                 prefs[CLAIMED_ALBUM_EMOJIS_KEY] = claimed + toClaim
                 val currentCoins = prefs[COINS_KEY] ?: 0
                 totalCoinsAwarded = toClaim.size * ALBUM_EMOJI_REWARD_COINS
-                prefs[COINS_KEY] = currentCoins + totalCoinsAwarded
+                prefs[COINS_KEY] = (currentCoins + totalCoinsAwarded).coerceIn(0, GameKeys.MAX_COINS)
                 recordTx(prefs, "Album Emojis Unlocked (${toClaim.size})", totalCoinsAwarded)
             }
         }
@@ -489,7 +489,7 @@ class ProgressRepository(private val context: Context) {
             if (prefs[key] != true) {
                 prefs[key] = true
                 val currentCoins = prefs[COINS_KEY] ?: 0
-                prefs[COINS_KEY] = currentCoins + coinReward
+                prefs[COINS_KEY] = (currentCoins + coinReward).coerceIn(0, GameKeys.MAX_COINS)
                 recordTx(prefs, "Category Completed ($categoryName)", coinReward)
                 claimedNow = true
             }
@@ -519,7 +519,7 @@ class ProgressRepository(private val context: Context) {
             if (!claimed) {
                 prefs[key] = true
                 val currentCoins = prefs[COINS_KEY] ?: 0
-                prefs[COINS_KEY] = currentCoins + coinReward
+                prefs[COINS_KEY] = (currentCoins + coinReward).coerceIn(0, GameKeys.MAX_COINS)
                 if (coinReward > 0) {
                     recordTx(prefs, "Mission Reward Claimed", coinReward)
                 }

@@ -100,19 +100,25 @@ android {
  */
 val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
   group = "verification"
-  description = "Aborts unless a real upload keystore and its passwords are configured."
+  description = "Aborts unless a real upload keystore and all signing credentials are configured."
   // Captured as plain values so this action stays compatible with Gradle's configuration cache.
   val defaultKeystore = File(rootDir, "my-upload-key.jks").absolutePath
   doFirst {
     val keystorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() } ?: defaultKeystore
+    val storePass = System.getenv("STORE_PASSWORD")
+    val keyPass = System.getenv("KEY_PASSWORD")
+    val keyAlias = System.getenv("KEY_ALIAS")
+
     val missing = buildList {
       if (!File(keystorePath).exists()) add("keystore file ($keystorePath)")
+      if (storePass.isNullOrBlank()) add("STORE_PASSWORD environment variable")
+      if (keyPass.isNullOrBlank()) add("KEY_PASSWORD environment variable")
+      if (keyAlias.isNullOrBlank()) add("KEY_ALIAS environment variable")
     }
     if (missing.isNotEmpty()) {
       throw GradleException(
-        "Release signing is not configured. Missing: ${missing.joinToString()}. " +
-          "Set KEYSTORE_PATH/STORE_PASSWORD/KEY_PASSWORD (plus optional KEY_ALIAS) or place " +
-          "my-upload-key.jks in the project root. See RELEASE.md. " +
+        "Release signing is incomplete or unconfigured. Missing: ${missing.joinToString()}. " +
+          "Set KEYSTORE_PATH, STORE_PASSWORD, KEY_PASSWORD, and KEY_ALIAS. See RELEASE.md. " +
           "The app is deliberately never signed with debug.keystore for release."
       )
     }
