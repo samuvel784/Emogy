@@ -6,4 +6,4 @@ An offline emoji memory game with **1,000 levels**, **20 themed worlds**, a Dail
 * [Terms of Service](terms-of-service.md)
 * [Credits and Licences](credits.md)
 
-**Support:** support@vurka.com
+**Support:** samuvel072@gmail.com

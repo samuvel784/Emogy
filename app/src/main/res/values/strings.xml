@@ -455,6 +455,6 @@
     <string name="legal_contact_subject">%1$s %2$s support</string>
     <string name="legal_load_error">This document could not be opened. Please reinstall the app or contact support.</string>
     <!-- Replace before release. The release build refuses to package while this placeholder remains. -->
-    <string name="support_email" translatable="false">support@vurka.com</string>
+    <string name="support_email" translatable="false">samuvel072@gmail.com</string>
 
 </resources>

@@ -3,7 +3,7 @@
 **Emogy: The Memory Game**
 _Last updated: 31 October 2026_
 
-These Terms govern your use of the Emogy Android app (package `com.vurka.emogy`), published by Vurka ("we", "us"). By installing or using Emogy you agree to these Terms. If you do not agree, please do not use the app.
+These Terms govern your use of the Emogy Android app (package `com.vurka.emogy`), published by Vurka-Studio ("we", "us"). By installing or using Emogy you agree to these Terms. If you do not agree, please do not use the app.
 
 ## 1. The app
 
@@ -65,7 +65,7 @@ You may stop using Emogy at any time by uninstalling it. We may suspend or end y
 
 ## 13. Governing law
 
-These Terms are governed by the laws of United States, without regard to its conflict-of-law rules. Mandatory consumer-protection laws of the place where you live still apply to you.
+These Terms are governed by the laws of India, without regard to its conflict-of-law rules. Mandatory consumer-protection laws of the place where you live still apply to you.
 
 ## 14. Changes to these Terms
 
@@ -75,4 +75,4 @@ We may update these Terms. The updated version will ship with the app and the "L
 
 Questions about these Terms:
 
-**Email:** support@vurka.com
+**Email:** samuvel072@gmail.com

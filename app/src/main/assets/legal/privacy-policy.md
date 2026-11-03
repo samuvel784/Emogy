@@ -3,7 +3,7 @@
 **Emogy: The Memory Game**
 _Last updated: 31 October 2026_
 
-This policy applies to the Emogy Android app (package `com.vurka.emogy`), published by Vurka ("we", "us"). In short: **Emogy collects nothing and sends nothing anywhere. It works completely offline.**
+This policy applies to the Emogy Android app (package `com.vurka.emogy`), published by Vurka-Studio ("we", "us"). In short: **Emogy collects nothing and sends nothing anywhere. It works completely offline.**
 
 ## Summary
 
@@ -83,4 +83,4 @@ If this policy changes, the updated version will be published with the app updat
 
 Questions about this policy or the app's data practices:
 
-**Email:** support@vurka.com
+**Email:** samuvel072@gmail.com
