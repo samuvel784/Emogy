@@ -3,7 +3,7 @@
 **Emogy: The Memory Game**
 _Last updated: 31 October 2026_
 
-These Terms govern your use of the Emogy Android app (package `com.vurka.emogy`), published by Vurka-Studio ("we", "us"). By installing or using Emogy you agree to these Terms. If you do not agree, please do not use the app.
+These Terms govern your use of the Emogy Android app (package `com.vurka.emogy`), published by Vurka Studio ("we", "us"). By installing or using Emogy you agree to these Terms. If you do not agree, please do not use the app.
 
 ## 1. The app
 
