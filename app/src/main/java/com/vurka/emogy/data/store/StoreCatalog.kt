@@ -189,7 +189,7 @@ object StoreCatalog {
         ),
         StoreItem(
             "bundle_mystery_box", StoreCategory.BUNDLES, "Mystery Box",
-            "Unpack hints, bonus coins, streak fire & a random emoji!", 2_000,
+            "Unpack hints, bonus coins & a random emoji!", 2_000,
             symbol = "📦",
         ),
     )

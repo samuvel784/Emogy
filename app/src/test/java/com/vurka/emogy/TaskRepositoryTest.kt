@@ -381,4 +381,34 @@ class TaskRepositoryTest {
         assertEquals(ClaimOutcome.Expired, outcome)
         assertEquals(0, coins())
     }
+
+    @Test
+    fun `daily and weekly tasks remain claimable after monthly deadline`() = runBlocking {
+        val monthStartMillis = millis(2024, 6, 1)
+        now = monthStartMillis + 27 * day + 12 * 3600_000L // Day 28, 12:00 UTC (after monthly deadline)
+
+        val dailyDef = TaskConfig.all.first { it.period == TaskPeriod.DAILY }
+        val weeklyDef = TaskConfig.all.first { it.period == TaskPeriod.WEEKLY }
+
+        val today = calendar.today()
+        val dailyState = TaskPeriodState(
+            period = TaskPeriod.DAILY,
+            key = engine.dailyKey(today),
+            startEpochDay = today,
+            instances = listOf(TaskInstance(dailyDef, progress = dailyDef.target)),
+        )
+        val weeklyState = TaskPeriodState(
+            period = TaskPeriod.WEEKLY,
+            key = engine.weeklyKey(today),
+            startEpochDay = calendar.weekStart(today),
+            instances = listOf(TaskInstance(weeklyDef, progress = weeklyDef.target)),
+        )
+        seed(TaskState(daily = dailyState, weekly = weeklyState))
+
+        val dailyClaim = repository.claim(TaskPeriod.DAILY, dailyDef.id)
+        assertEquals(ClaimOutcome.Granted(dailyDef.reward.coins, dailyDef.reward.hints, dailyDef.reward.themeId), dailyClaim)
+
+        val weeklyClaim = repository.claim(TaskPeriod.WEEKLY, weeklyDef.id)
+        assertTrue("Weekly claim should succeed after monthly deadline", weeklyClaim is ClaimOutcome.Granted)
+    }
 }

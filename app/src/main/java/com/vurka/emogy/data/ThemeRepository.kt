@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vurka.emogy.data.store.CosmeticKind
+import com.vurka.emogy.data.store.StoreCatalog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -54,18 +55,24 @@ class ThemeRepository(private val context: Context) {
         prefs[SELECTED_VICTORY_KEY] ?: DEFAULT_VICTORY_EFFECT
     }
 
-    suspend fun setSelectedThemeId(id: String) {
-        dataStore.edit { it[SELECTED_THEME_ID_KEY] = id }
+    suspend fun setSelectedThemeId(id: String, isOwned: (String) -> Boolean = { true }) {
+        val cosmetic = StoreCatalog.cosmetic(id)
+        if (cosmetic != null && (cosmetic.default || isOwned(id))) {
+            dataStore.edit { it[SELECTED_THEME_ID_KEY] = id }
+        }
     }
 
-    suspend fun equip(kind: CosmeticKind, id: String) {
-        dataStore.edit { prefs ->
-            when (kind) {
-                CosmeticKind.CARD_BACK -> prefs[SELECTED_THEME_ID_KEY] = id
-                CosmeticKind.CARD_THEME -> prefs[SELECTED_CARD_THEME_KEY] = id
-                CosmeticKind.BOARD_THEME -> prefs[SELECTED_BOARD_KEY] = id
-                CosmeticKind.MATCH_EFFECT -> prefs[SELECTED_MATCH_KEY] = id
-                CosmeticKind.VICTORY_EFFECT -> prefs[SELECTED_VICTORY_KEY] = id
+    suspend fun equip(kind: CosmeticKind, id: String, isOwned: (String) -> Boolean = { true }) {
+        val cosmetic = StoreCatalog.cosmetic(id)
+        if (cosmetic != null && cosmetic.kind == kind && (cosmetic.default || isOwned(id))) {
+            dataStore.edit { prefs ->
+                when (kind) {
+                    CosmeticKind.CARD_BACK -> prefs[SELECTED_THEME_ID_KEY] = id
+                    CosmeticKind.CARD_THEME -> prefs[SELECTED_CARD_THEME_KEY] = id
+                    CosmeticKind.BOARD_THEME -> prefs[SELECTED_BOARD_KEY] = id
+                    CosmeticKind.MATCH_EFFECT -> prefs[SELECTED_MATCH_KEY] = id
+                    CosmeticKind.VICTORY_EFFECT -> prefs[SELECTED_VICTORY_KEY] = id
+                }
             }
         }
     }

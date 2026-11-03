@@ -98,7 +98,7 @@ class TaskRepository(
                 outcome = ClaimOutcome.ClockAnomaly
                 return@edit
             }
-            if (!calendar.isMonthlyWindowOpen(today)) {
+            if (period == TaskPeriod.MONTHLY && !calendar.isMonthlyWindowOpen(today)) {
                 outcome = ClaimOutcome.Expired
                 return@edit
             }

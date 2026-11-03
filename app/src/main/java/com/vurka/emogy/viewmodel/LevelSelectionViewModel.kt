@@ -11,6 +11,7 @@ import com.vurka.emogy.data.DailyChallengeProgress
 import com.vurka.emogy.data.ThemeRepository
 import com.vurka.emogy.data.store.CosmeticKind
 import com.vurka.emogy.data.store.PurchaseResult
+import com.vurka.emogy.data.store.StoreCatalog
 import com.vurka.emogy.data.store.StoreRepository
 import com.vurka.emogy.model.CardBackTheme
 import com.vurka.emogy.model.LevelConfig
@@ -239,7 +240,15 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
 
     fun equip(kind: CosmeticKind, id: String) {
         viewModelScope.launch {
-            themeRepository.equip(kind, id)
+            val ownedSet = ownedCosmetics.value
+            val levelsCompleted = totalLevelsCompleted.value
+            val cosmetic = StoreCatalog.cosmetic(id)
+            val isOwned = cosmetic != null && (
+                cosmetic.default ||
+                id in ownedSet ||
+                (cosmetic.milestoneLevel > 0 && levelsCompleted >= cosmetic.milestoneLevel)
+            )
+            themeRepository.equip(kind, id) { isOwned }
         }
     }
 
@@ -251,7 +260,15 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
 
     fun setSelectedThemeId(id: String) {
         viewModelScope.launch {
-            themeRepository.setSelectedThemeId(id)
+            val ownedSet = ownedCosmetics.value
+            val levelsCompleted = totalLevelsCompleted.value
+            val cosmetic = StoreCatalog.cosmetic(id)
+            val isOwned = cosmetic != null && (
+                cosmetic.default ||
+                id in ownedSet ||
+                (cosmetic.milestoneLevel > 0 && levelsCompleted >= cosmetic.milestoneLevel)
+            )
+            themeRepository.setSelectedThemeId(id) { isOwned }
         }
     }
 
