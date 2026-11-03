@@ -29,11 +29,26 @@ android {
   // tasks are blocked by the `verifyReleaseSigning` task defined at the bottom of this file.
   signingConfigs {
     create("release") {
+      val envStorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+      val propStorePath = (findProperty("signing.store.path") as? String)
+        ?: (findProperty("android.injected.signing.store.file") as? String)
+      val keystore = file(envStorePath ?: propStorePath ?: "${rootDir}/vurka-emogy-upload-key.jks")
+
       val storePass = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+        ?: (findProperty("signing.store.password") as? String)
+        ?: (findProperty("android.injected.signing.store.password") as? String)
+
       val keyPass = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+        ?: (findProperty("signing.key.password") as? String)
+        ?: (findProperty("android.injected.signing.key.password") as? String)
+
       val alias = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
-      if (releaseKeystoreFile.exists() && storePass != null && keyPass != null && alias != null) {
-        storeFile = releaseKeystoreFile
+        ?: (findProperty("signing.key.alias") as? String)
+        ?: (findProperty("android.injected.signing.key.alias") as? String)
+        ?: "vurka-emogy"
+
+      if (keystore.exists() && !storePass.isNullOrBlank() && !keyPass.isNullOrBlank()) {
+        storeFile = keystore
         storePassword = storePass
         keyAlias = alias
         keyPassword = keyPass
@@ -103,24 +118,35 @@ val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
   group = "verification"
   description = "Aborts unless a real upload keystore and all signing credentials are configured."
   // Captured as plain values so this action stays compatible with Gradle's configuration cache.
-  val defaultKeystore = File(rootDir, "my-upload-key.jks").absolutePath
+  val defaultKeystore = File(rootDir, "vurka-emogy-upload-key.jks").absolutePath
   doFirst {
-    val keystorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() } ?: defaultKeystore
-    val storePass = System.getenv("STORE_PASSWORD")
-    val keyPass = System.getenv("KEY_PASSWORD")
-    val keyAlias = System.getenv("KEY_ALIAS")
+    val keystorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("android.injected.signing.store.file") as? String)
+      ?: (findProperty("signing.store.path") as? String)
+      ?: defaultKeystore
+
+    val storePass = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("android.injected.signing.store.password") as? String)
+      ?: (findProperty("signing.store.password") as? String)
+
+    val keyPass = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("android.injected.signing.key.password") as? String)
+      ?: (findProperty("signing.key.password") as? String)
+
+    val keyAlias = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("android.injected.signing.key.alias") as? String)
+      ?: (findProperty("signing.key.alias") as? String)
 
     val missing = buildList {
       if (!File(keystorePath).exists()) add("keystore file ($keystorePath)")
-      if (storePass.isNullOrBlank()) add("STORE_PASSWORD environment variable")
-      if (keyPass.isNullOrBlank()) add("KEY_PASSWORD environment variable")
-      if (keyAlias.isNullOrBlank()) add("KEY_ALIAS environment variable")
+      if (storePass.isNullOrBlank()) add("STORE_PASSWORD (or UI signing password)")
+      if (keyPass.isNullOrBlank()) add("KEY_PASSWORD (or UI key password)")
+      if (keyAlias.isNullOrBlank()) add("KEY_ALIAS (or UI key alias)")
     }
     if (missing.isNotEmpty()) {
       throw GradleException(
         "Release signing is incomplete or unconfigured. Missing: ${missing.joinToString()}. " +
-          "Set KEYSTORE_PATH, STORE_PASSWORD, KEY_PASSWORD, and KEY_ALIAS. See RELEASE.md. " +
-          "The app is deliberately never signed with debug.keystore for release."
+          "Provide environment variables or use Android Studio's Generate Signed Bundle wizard. See RELEASE.md."
       )
     }
   }
