@@ -167,6 +167,27 @@ class GameViewModelTest {
     }
 
     @Test
+    fun cardFlipsAreBatchedInMemory() = runTest(dispatcher) {
+        val deps = FakeProgress()
+        val vm = newGame(level = 101, progress = deps)
+
+        assertEquals(0, deps.flips)
+
+        val card1 = vm.state.value.cards[0]
+        vm.onCardClicked(card1.id)
+        // First card click batches flip in memory, no DataStore write yet
+        assertEquals(0, deps.flips)
+
+        val card2 = vm.state.value.cards[1]
+        vm.onCardClicked(card2.id)
+        runCurrent()
+        // Second card click resolves pair and flushes flips
+        assertTrue(deps.flips > 0)
+
+        vm.viewModelScope.cancel()
+    }
+
+    @Test
     fun hintsRespectTheLimitAndCooldown() = runTest(dispatcher) {
         val vm = newGame(level = 101)
         val startHints = vm.state.value.hintsLeft

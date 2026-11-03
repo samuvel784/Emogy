@@ -190,6 +190,8 @@ class ProgressRepository(private val context: Context) {
     ): LevelRecordResult {
         val safeLevel = level.coerceIn(1, LevelCatalog.TOTAL_LEVELS)
         val safeStars = stars.coerceIn(0, 3)
+        val safeMoves = moves.coerceAtLeast(0)
+        val safeTimeSec = timeSec.coerceAtLeast(0)
         var result = LevelRecordResult(
             stars = safeStars,
             isFirstClear = false,
@@ -208,9 +210,9 @@ class ProgressRepository(private val context: Context) {
             )
             val outcome = LevelRewardCalculator.calculate(
                 previous = previous,
-                stars = stars,
-                moves = moves,
-                timeSec = timeSec,
+                stars = safeStars,
+                moves = safeMoves,
+                timeSec = safeTimeSec,
             )
 
             prefs[starsKey(safeLevel)] = outcome.stars
@@ -269,7 +271,9 @@ class ProgressRepository(private val context: Context) {
 
     suspend fun setSoundEnabled(enabled: Boolean) {
         setMasterVolume(if (enabled) 1f else 0f)
-    }    suspend fun setMasterVolume(volume: Float) {
+    }
+
+    suspend fun setMasterVolume(volume: Float) {
         dataStore.edit { it[MASTER_VOLUME_KEY] = volume.coerceIn(0f, 1f) }
     }
 

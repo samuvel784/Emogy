@@ -36,8 +36,10 @@ $env:KEY_PASSWORD   = "..."
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:testDebugUnitTest :app:lintRelease
-.\gradlew.bat :app:bundleRelease
+.\gradlew.bat clean :app:bundleRelease
 ```
+
+Always run `.\gradlew.bat clean :app:bundleRelease` after the last commit and check the `.aab` timestamp is newer than the latest git commit before uploading.
 
 Output: `app/build/outputs/bundle/release/app-release.aab`.
 

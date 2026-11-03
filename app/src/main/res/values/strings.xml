@@ -335,7 +335,7 @@
     <string name="tasks_weekly_title">Weekly Tasks</string>
     <string name="tasks_weekly_subtitle">Resets Sunday 00:00</string>
     <string name="tasks_monthly_title">Monthly Challenges</string>
-    <string name="tasks_monthly_subtitle">Ends %1$s · %2$s</string>
+    <string name="tasks_monthly_subtitle">Claim before %1$s · %2$s</string>
     <string name="tasks_monthly_subtitle_closed">Progress ended %1$s</string>
     <plurals name="tasks_monthly_days_left">
         <item quantity="one">%1$d day left</item>
@@ -366,9 +366,9 @@
     <string name="tasks_all_done">All missions claimed in this cycle</string>
     <string name="tasks_empty">No missions generated for this cycle.</string>
     <string name="tasks_monthly_closed_title">Progress window closed</string>
-    <string name="tasks_monthly_closed">New progress stopped on %1$s. Finished missions stay claimable until next month begins.</string>
+    <string name="tasks_monthly_closed">Monthly progress and claims closed on %1$s. Unclaimed monthly rewards are lost when the month ends.</string>
     <string name="tasks_milestone_title">Monthly Milestone</string>
-    <string name="tasks_milestone_body">Claim all five monthly challenges to unlock the Eclipse Sovereign card back, 3,000 coins and 5 hints.</string>
+    <string name="tasks_milestone_body">Claim all five monthly challenges before the monthly deadline to unlock the Eclipse Sovereign card back, 3,000 coins and 5 hints.</string>
     <string name="tasks_milestone_claim_value">Claim 🪙 %1$d + 💡 %2$d + card back</string>
     <string name="tasks_milestone_claimed">Milestone claimed</string>
     <string name="tasks_milestone_locked">Claim every monthly challenge first</string>

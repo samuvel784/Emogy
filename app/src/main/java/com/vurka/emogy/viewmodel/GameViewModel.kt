@@ -3,6 +3,7 @@ package com.vurka.emogy.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vurka.emogy.data.DailyChallenge
+import com.vurka.emogy.data.EmojiCatalog
 import com.vurka.emogy.data.GameSnapshot
 import com.vurka.emogy.data.LevelCatalog
 import com.vurka.emogy.data.SnapshotCard
@@ -121,6 +122,26 @@ class GameViewModel(
 
     private val _state = MutableStateFlow(GameState())
     val state: StateFlow<GameState> = _state.asStateFlow()
+
+    private var pendingFlips = 0
+    private var pendingAnimalFlips = 0
+
+    fun flushPendingFlips() {
+        val flips = pendingFlips
+        val animalFlips = pendingAnimalFlips
+        if (flips <= 0) return
+        pendingFlips = 0
+        pendingAnimalFlips = 0
+        val nonAnimalFlips = flips - animalFlips
+        viewModelScope.launch {
+            if (nonAnimalFlips > 0) {
+                progress.incrementCardFlips(nonAnimalFlips, isAnimal = false)
+            }
+            if (animalFlips > 0) {
+                progress.incrementCardFlips(animalFlips, isAnimal = true)
+            }
+        }
+    }
 
     private var previewJob: Job? = null
     private var timerJob: Job? = null
@@ -349,6 +370,7 @@ class GameViewModel(
      * days you played, and "games played" must not silently ignore defeats.
      */
     private fun recordLoss() {
+        flushPendingFlips()
         viewModelScope.launch {
             progress.updateDailyStreak()
             progress.updatePlayStats(isPerfect = false)
@@ -471,10 +493,9 @@ class GameViewModel(
             hapticsEnabled = hapticsEnabled.value,
         )
 
-        val isAnimal = clickedCard.emoji in com.vurka.emogy.data.EmojiCatalog.getByCategory("Animals").map { it.emoji }
-        viewModelScope.launch {
-            progress.incrementCardFlips(1, isAnimal)
-        }
+        val isAnimal = clickedCard.emoji in EmojiCatalog.animalEmojiIds
+        pendingFlips++
+        if (isAnimal) pendingAnimalFlips++
 
         val updatedCards = current.cards.map { if (it.id == cardId) it.copy(isFlipped = true) else it }
 
@@ -490,6 +511,7 @@ class GameViewModel(
         autoHideJob?.cancel()
         val firstCard = updatedCards.find { it.id == current.firstSelectedCardId } ?: return
         val newMoves = current.moves + 1
+        flushPendingFlips()
 
         if (firstCard.emojiId == clickedCard.emojiId) {
             // Every successful pair unlocks its emoji in the offline album, including the final
@@ -663,11 +685,13 @@ class GameViewModel(
 
     /** Saves the current board now. Called when the activity stops. */
     fun saveSnapshotNow() {
+        flushPendingFlips()
         viewModelScope.launch { persistSnapshot() }
     }
 
     /** Leaving the game through the pause menu discards the resumable run. */
     fun abandonGame() {
+        flushPendingFlips()
         cancelAllJobs()
         clearSnapshot()
     }
@@ -808,6 +832,7 @@ class GameViewModel(
             hapticsEnabled = false,
         )
         if (paused) {
+            flushPendingFlips()
             timerJob?.cancel()
             autoHideJob?.cancel()
             assistJob?.cancel()
@@ -821,6 +846,7 @@ class GameViewModel(
     }
 
     override fun onCleared() {
+        flushPendingFlips()
         cancelAllJobs()
     }
 }

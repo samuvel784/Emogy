@@ -46,7 +46,7 @@ WHAT YOU GET
 PRIVATE AND PEACEFUL
 • No account or sign-in required
 • No internet needed: Emogy works completely offline
-• Real-money purchases do not exist: coins are only an in-game reward
+• No real-money purchases or gambling; the Mystery Box uses only earned in-game coins and gives guaranteed hints and coins plus one random emoji.
 
 BUILT TO BE COMFORTABLE
 • Large tap targets and clear contrast
@@ -100,7 +100,7 @@ Answer truthfully in Play Console; these are the answers that match the app as b
 | Sexual content or nudity | No |
 | Profanity or crude humour | No |
 | Controlled substances (drugs, alcohol, tobacco) | No |
-| Gambling or simulated gambling | No (no betting, no random paid rewards, no real-money stakes) |
+| Gambling or simulated gambling | No (no real-money purchases, no real-money gambling; the Mystery Box uses only earned in-game coins and gives guaranteed hints and coins plus one random emoji) |
 | User-to-user communication or user-generated content | No |
 | Shares user location | No |
 | Digital purchases of any kind | No |

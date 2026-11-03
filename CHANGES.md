@@ -1,3 +1,17 @@
+# Emogy v2.2.1 - release maintenance
+
+## Bug fixes & enhancements
+* **Monthly missions UI**: Clarified in `strings.xml` that monthly progress and claims close on day 28 (%1$s) and unclaimed monthly rewards expire when the month ends.
+* **Version bump**: Updated `versionCode = 5` and `versionName = "2.2.1"`.
+* **Release signing hygiene**: Removed fallback default passwords ("android") from release `signingConfig` in `app/build.gradle.kts`.
+* **ProgressRepository fixes**: Safe stars (`safeStars`) passed to `LevelRewardCalculator.calculate`; non-negative `moves` and `timeSec`; fixed two functions on one line; added unit test.
+* **SoundManager init/release race**: `release()` resets `preparing = false` in synchronized block; late-finishing init cannot resurrect released pool.
+* **Card tap DataStore write reduction**: Memory batching for flip counts during active gameplay, writing to DataStore once per pair, on pause, or on game end.
+* **Store listing and legal docs**: Updated `store-listing/LISTING.md` Mystery Box wording and added OWNER TODO list in `PLAY_STORE_CHECKLIST.md`.
+* **Stale-build guard**: Added clean build instruction to `RELEASE.md`.
+
+---
+
 # Emogy v2.2 - release readiness
 
 ## About & Legal (new)

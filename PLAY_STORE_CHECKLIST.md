@@ -54,3 +54,11 @@ Keep the .jks and passwords backed up and **never commit them**. Enrol in Play A
 * `jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab` shows your key.
 * Release build tested on a real phone, including TalkBack and "Remove animations".
 * Pre-launch report in Play Console reviewed.
+
+## OWNER TODO
+1. Replace "United States" governing law in `docs/terms-of-service.md` with a specific country/state.
+2. Confirm `support@vurka.com` is a monitored inbox and matches the Play developer profile.
+3. Confirm GitHub Pages serves `docs/privacy-policy` publicly and paste that URL in Play Console.
+4. Capture 2-8 phone screenshots.
+5. New personal developer accounts must run a closed test (12+ testers, 14 days) before production — verify the current requirement in Play Console.
+6. Never share the project folder/ZIP because it contains the upload keystores; back up the key securely.

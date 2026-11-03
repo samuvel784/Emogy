@@ -106,13 +106,16 @@ object SoundManager {
 
     /**
      * Prepares the sound pool on a background thread. Safe to call repeatedly; does nothing after
-     * the first successful initialisation (or while one is in progress).
+     * the first successful initialisation (or while one is in progress for the current generation).
      */
     fun init(context: Context) {
-        if (pool != null || preparing) return
-        preparing = true
+        val myGeneration: Int
+        synchronized(this) {
+            if (pool != null || preparing) return
+            preparing = true
+            myGeneration = generation
+        }
         val appContext = context.applicationContext
-        val myGeneration = generation
         executor.execute {
             try {
                 val soundPool = SoundPool.Builder()
@@ -141,17 +144,30 @@ object SoundManager {
                     val id = soundPool.load(file.absolutePath, 1)
                     if (id != 0) loadedIds[sfx] = id
                 }
-                if (myGeneration == generation) {
-                    pool = soundPool
-                } else {
-                    loadedIds.clear()
-                    soundPool.release()
+                synchronized(this) {
+                    if (myGeneration == generation) {
+                        pool = soundPool
+                    } else {
+                        loadedIds.clear()
+                        soundPool.release()
+                    }
                 }
             } catch (_: Throwable) {
                 // Audio is a nicety: if the device cannot do it, the game stays fully playable.
-                pool = null
+                synchronized(this) {
+                    if (myGeneration == generation) {
+                        pool = null
+                    }
+                }
             } finally {
-                preparing = false
+                // Reset preparing only if this task still matches the current generation.
+                // If release() was called mid-flight, release() already cleared preparing = false,
+                // allowing a new init() call for the new generation to proceed unimpeded.
+                synchronized(this) {
+                    if (myGeneration == generation) {
+                        preparing = false
+                    }
+                }
             }
         }
     }
@@ -215,6 +231,7 @@ object SoundManager {
     fun release() {
         synchronized(this) {
             generation++
+            preparing = false
             try {
                 pool?.release()
             } catch (_: Throwable) {

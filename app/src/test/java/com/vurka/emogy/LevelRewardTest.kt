@@ -106,6 +106,20 @@ class LevelRewardTest {
         assertEquals(3, result.stars)
         assertEquals(15 + 5 * 3, result.coinsAwarded)
     }
+
+    @Test
+    fun negativeStarsAreClampedToZeroAndNeverReward() {
+        val result = LevelRewardCalculator.calculate(
+            previous = firstClear,
+            stars = -5,
+            moves = 4,
+            timeSec = 12,
+        )
+
+        assertEquals(0, result.stars)
+        assertEquals(0, result.coinsAwarded)
+        assertFalse(result.isFirstClear)
+    }
 }
 
 class PurchaseCalculatorTest {

@@ -90,6 +90,10 @@ object EmojiCatalog {
 
     fun resetGlyphFilter() = installGlyphFilter { true }
 
+    val animalEmojiIds: Set<String> by lazy {
+        allItems.filter { it.category == "Animals" }.mapTo(HashSet()) { it.emoji }
+    }
+
     fun getByCategory(category: String): List<EmojiEntry> = items.filter { it.category == category }
 
     fun getAllCategories(): List<String> = items.map { it.category }.distinct()

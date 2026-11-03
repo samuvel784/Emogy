@@ -18,8 +18,8 @@ android {
     applicationId = "com.vurka.emogy"
     minSdk = 24
     targetSdk = 37
-    versionCode = 4
-    versionName = "2.2"
+    versionCode = 5
+    versionName = "2.2.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -29,12 +29,13 @@ android {
   // tasks are blocked by the `verifyReleaseSigning` task defined at the bottom of this file.
   signingConfigs {
     create("release") {
-      val storePass = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() } ?: "android"
-      val keyPass = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() } ?: "android"
-      if (releaseKeystoreFile.exists()) {
+      val storePass = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+      val keyPass = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+      val alias = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
+      if (releaseKeystoreFile.exists() && storePass != null && keyPass != null && alias != null) {
         storeFile = releaseKeystoreFile
         storePassword = storePass
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyAlias = alias
         keyPassword = keyPass
       }
     }
