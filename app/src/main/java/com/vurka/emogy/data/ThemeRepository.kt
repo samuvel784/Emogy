@@ -55,13 +55,6 @@ class ThemeRepository(private val context: Context) {
         prefs[SELECTED_VICTORY_KEY] ?: DEFAULT_VICTORY_EFFECT
     }
 
-    suspend fun setSelectedThemeId(id: String, isOwned: (String) -> Boolean = { true }) {
-        val cosmetic = StoreCatalog.cosmetic(id)
-        if (cosmetic != null && (cosmetic.default || isOwned(id))) {
-            dataStore.edit { it[SELECTED_THEME_ID_KEY] = id }
-        }
-    }
-
     suspend fun equip(kind: CosmeticKind, id: String, isOwned: (String) -> Boolean = { true }) {
         val cosmetic = StoreCatalog.cosmetic(id)
         if (cosmetic != null && cosmetic.kind == kind && (cosmetic.default || isOwned(id))) {

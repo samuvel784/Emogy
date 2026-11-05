@@ -75,13 +75,13 @@ object LevelCatalog {
             val boss = isBossLevel(i)
 
             val basePairs = when {
-                i <= 10 -> 4 + (i / 3)                    // 4..7
-                i <= 50 -> 7 + ((i - 10) / 14)            // 7..9
-                i <= 150 -> 9 + ((i - 50) / 34)           // 9..11
-                i <= 300 -> 11 + ((i - 150) / 50)         // 11..14
-                i <= 500 -> 14 + ((i - 300) / 100)        // 14..16
-                i <= 750 -> 16 + ((i - 500) / 125)        // 16..17
-                else -> 18 + ((i - 750) / 125)            // 18..20
+                i <= 5 -> 8                               // 8 pairs = 16 cards (4x4 grid)
+                i <= 15 -> 8 + ((i - 5) / 5)              // 8..10 pairs = 16..20 cards (4x4 to 4x5 grid)
+                i <= 50 -> 10 + ((i - 15) / 18)           // 10..11 pairs = 20..22 cards (4x5 to 4x6 grid)
+                i <= 150 -> 11 + ((i - 50) / 50)          // 11..13 pairs = 22..26 cards (5x5 to 5x6 grid)
+                i <= 300 -> 13 + ((i - 150) / 75)         // 13..15 pairs = 26..30 cards (6x5 grid)
+                i <= 600 -> 15 + ((i - 300) / 300)        // 15..16 pairs = 30..32 cards (6x6 grid)
+                else -> 16 + ((i - 600) / 100)            // 16..20 pairs = 32..40 cards (6x6 grid)
             }
             val pairCount = (basePairs + if (boss) 2 else 0).coerceIn(3, 20)
 

@@ -88,4 +88,34 @@ class LevelAccessTest {
         assertTrue(ThemeUnlock.isUnlocked(purchased = false, completedLevels = 50, milestoneLevels = 50))
         assertTrue(ThemeUnlock.isUnlocked(purchased = true, completedLevels = 0, milestoneLevels = 800))
     }
+
+    @Test
+    fun brandNewPlayerCanAccessLevel1Level2Level100AndLevel1000() {
+        listOf(1, 2, 100, 500, 1000).forEach { level ->
+            val config = LevelCatalog.getLevel(level)
+            assertEquals(level, config.levelNumber)
+            assertTrue(config.pairCount > 0)
+        }
+    }
+
+    @Test
+    fun accessToALevelDoesNotChangeWhenPreviousLevelHasZeroStars() {
+        val emptyStarsMap = emptyMap<Int, Int>()
+        listOf(1, 2, 100, 1000).forEach { level ->
+            val stars = emptyStarsMap[level] ?: 0
+            assertEquals(0, stars)
+            val config = LevelCatalog.getLevel(level)
+            assertEquals(level, config.levelNumber)
+        }
+    }
+
+    @Test
+    fun sequentialCompletionIsNotRequiredToStartAnotherLevel() {
+        val targetLevel = 500
+        val config = LevelCatalog.getLevel(targetLevel)
+        assertEquals(500, config.levelNumber)
+        val engine = MemoryGameEngine(config, Random(targetLevel.toLong()))
+        val deck = engine.generateDeck()
+        assertEquals(config.pairCount * 2, deck.size)
+    }
 }

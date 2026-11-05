@@ -146,8 +146,6 @@ object StoreCatalog {
 
     fun cosmetic(id: String): Cosmetic? = cosmeticById[id]
 
-    fun cosmeticsOf(kind: CosmeticKind): List<Cosmetic> = cosmetics.filter { it.kind == kind }
-
     // ---------------------------------------------------------------- consumables
 
     val hintPacks: List<StoreItem> = listOf(
@@ -228,6 +226,4 @@ object StoreCatalog {
     private val itemById: Map<String, StoreItem> = items.associateBy { it.id }
 
     fun item(id: String): StoreItem? = itemById[id]
-
-    fun itemsOf(category: StoreCategory): List<StoreItem> = items.filter { it.category == category }
 }

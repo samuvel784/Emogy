@@ -14,9 +14,7 @@ data class AudioSettings(
     val master: Float = AudioMix.DEFAULT_MASTER,
     val music: Float = AudioMix.DEFAULT_MUSIC,
     val effects: Float = AudioMix.DEFAULT_EFFECTS,
-) {
-    val isAudible: Boolean get() = AudioMix.isAudible(master)
-}
+)
 
 /** Outcome of recording one finished level, used to drive the victory screen. */
 data class LevelRecordResult(
@@ -39,7 +37,6 @@ class ProgressRepository(private val context: Context) {
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode") // "Default", "Light", "Dark"
         private val ASSIST_MODE_KEY = booleanPreferencesKey("assist_mode")
         private val WELCOME_SEEN_KEY = booleanPreferencesKey("welcome_seen")
-        private val SELECTED_THEME_KEY = stringPreferencesKey("selected_theme")
         private val DAILY_STREAK_KEY = intPreferencesKey("daily_streak")
         private val LAST_PLAY_DATE_KEY = longPreferencesKey("last_play_date")
         private val TOTAL_GAMES_PLAYED_KEY = intPreferencesKey("total_games_played")
@@ -47,7 +44,6 @@ class ProgressRepository(private val context: Context) {
         private val COINS_KEY = GameKeys.COINS
         private val HINT_TOKENS_KEY = GameKeys.HINT_TOKENS
         private val OWNED_COSMETICS_KEY = GameKeys.OWNED_COSMETICS
-        private val LAST_SEEN_DAY_KEY = GameKeys.LAST_SEEN_DAY
         private val TOTAL_FLIPS_KEY = intPreferencesKey("total_card_flips")
         private val ANIMAL_FLIPS_KEY = intPreferencesKey("animal_card_flips")
         private val COLLECTED_EMOJIS_KEY = stringSetPreferencesKey("collected_emojis")
@@ -63,7 +59,6 @@ class ProgressRepository(private val context: Context) {
         fun starsKey(level: Int) = intPreferencesKey("stars_$level")
         fun bestMovesKey(level: Int) = intPreferencesKey("best_moves_$level")
         fun bestTimeKey(level: Int) = intPreferencesKey("best_time_$level")
-        fun rewardClaimedKey(rewardId: String) = booleanPreferencesKey("reward_claimed_$rewardId")
     }
 
     /**
@@ -111,13 +106,9 @@ class ProgressRepository(private val context: Context) {
         prefs[THEME_MODE_KEY] ?: "Light"
     }
 
-    val selectedTheme: Flow<String> = dataStore.data.map { prefs ->
-        prefs[SELECTED_THEME_KEY] ?: "default"
-    }
 
-    fun getLevelStars(level: Int): Flow<Int> = dataStore.data.map { prefs ->
-        prefs[starsKey(level)] ?: 0
-    }
+
+
 
     fun getLevelBestMoves(level: Int): Flow<Int> = dataStore.data.map { prefs ->
         prefs[bestMovesKey(level)] ?: 0
@@ -314,9 +305,7 @@ class ProgressRepository(private val context: Context) {
         dataStore.edit { it[THEME_MODE_KEY] = mode }
     }
 
-    suspend fun setSelectedTheme(theme: String) {
-        dataStore.edit { it[SELECTED_THEME_KEY] = theme }
-    }
+
 
     val dailyStreak: Flow<Int> = dataStore.data.map { prefs ->
         prefs[DAILY_STREAK_KEY] ?: 0
@@ -335,9 +324,7 @@ class ProgressRepository(private val context: Context) {
         )
     }.distinctUntilChanged()
 
-    val lastPlayDate: Flow<Long> = dataStore.data.map { prefs ->
-        prefs[LAST_PLAY_DATE_KEY] ?: 0L
-    }
+
 
     val totalGamesPlayed: Flow<Int> = dataStore.data.map { prefs ->
         prefs[TOTAL_GAMES_PLAYED_KEY] ?: 0
@@ -360,12 +347,7 @@ class ProgressRepository(private val context: Context) {
         (prefs[HINT_TOKENS_KEY] ?: 0).coerceAtLeast(0)
     }
 
-    suspend fun addHintTokens(count: Int) {
-        if (count <= 0) return
-        dataStore.edit { prefs ->
-            prefs[HINT_TOKENS_KEY] = ((prefs[HINT_TOKENS_KEY] ?: 0) + count).coerceAtLeast(0)
-        }
-    }
+
 
     /** Returns true only for the call that actually spent a token. */
     suspend fun tryConsumeHintToken(): Boolean {
@@ -389,29 +371,10 @@ class ProgressRepository(private val context: Context) {
         (owned + legacy).toSet()
     }.distinctUntilChanged()
 
-    suspend fun grantCosmetic(id: String) {
-        if (id.isBlank()) return
-        dataStore.edit { prefs ->
-            val current = prefs[OWNED_COSMETICS_KEY] ?: emptySet()
-            if (id !in current) prefs[OWNED_COSMETICS_KEY] = current + id
-        }
-    }
 
-    fun isCosmeticOwnedLegacy(cosmeticId: String): Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[GameKeys.legacyThemePurchased(cosmeticId)] ?: false
-    }
-
-    /** Last local day the app was seen; used to keep claims from moving backwards. */
-    val lastSeenDay: Flow<Long> = dataStore.data.map { prefs ->
-        prefs[LAST_SEEN_DAY_KEY] ?: 0L
-    }
 
     val totalCardFlips: Flow<Int> = dataStore.data.map { prefs ->
         prefs[TOTAL_FLIPS_KEY] ?: 0
-    }
-
-    val animalCardFlips: Flow<Int> = dataStore.data.map { prefs ->
-        prefs[ANIMAL_FLIPS_KEY] ?: 0
     }
 
     /**
@@ -501,9 +464,7 @@ class ProgressRepository(private val context: Context) {
         return claimedNow
     }
 
-    fun isRewardClaimed(rewardId: String): Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[rewardClaimedKey(rewardId)] ?: false
-    }
+
 
     suspend fun incrementCardFlips(count: Int = 1, isAnimal: Boolean = false) {
         dataStore.edit { prefs ->
@@ -514,64 +475,6 @@ class ProgressRepository(private val context: Context) {
                 prefs[ANIMAL_FLIPS_KEY] = currentAnimals + count
             }
         }
-    }
-
-    suspend fun claimReward(rewardId: String, coinReward: Int) {
-        dataStore.edit { prefs ->
-            val key = rewardClaimedKey(rewardId)
-            val claimed = prefs[key] ?: false
-            if (!claimed) {
-                prefs[key] = true
-                val currentCoins = prefs[COINS_KEY] ?: 0
-                prefs[COINS_KEY] = (currentCoins + coinReward).coerceIn(0, GameKeys.MAX_COINS)
-                if (coinReward > 0) {
-                    recordTx(prefs, "Mission Reward Claimed", coinReward)
-                }
-
-                if (rewardId.startsWith("daily_")) {
-                    val count = prefs[intPreferencesKey("daily_tasks_claimed_count")] ?: 0
-                    prefs[intPreferencesKey("daily_tasks_claimed_count")] = count + 1
-                } else if (rewardId.startsWith("weekly_")) {
-                    val count = prefs[intPreferencesKey("weekly_tasks_claimed_count")] ?: 0
-                    prefs[intPreferencesKey("weekly_tasks_claimed_count")] = count + 1
-                }
-            }
-        }
-    }
-
-    fun isThemePurchased(themeId: String): Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[booleanPreferencesKey("theme_purchased_$themeId")] ?: false
-    }
-
-    val dailyClaimedCount: Flow<Int> = dataStore.data.map { prefs ->
-        prefs[intPreferencesKey("daily_tasks_claimed_count")] ?: 0
-    }
-
-    val weeklyClaimedCount: Flow<Int> = dataStore.data.map { prefs ->
-        prefs[intPreferencesKey("weekly_tasks_claimed_count")] ?: 0
-    }
-
-    suspend fun buyItem(itemId: String, cost: Int): Boolean {
-        var success = false
-        dataStore.edit { prefs ->
-            val themeKey = if (itemId.startsWith("theme_")) {
-                booleanPreferencesKey("theme_purchased_${itemId.removePrefix("theme_")}")
-            } else {
-                null
-            }
-            val alreadyOwned = themeKey?.let { prefs[it] == true } ?: false
-            val outcome = PurchaseCalculator.buy(
-                coins = prefs[COINS_KEY] ?: 0,
-                cost = cost,
-                alreadyOwned = alreadyOwned,
-            )
-            if (outcome.success) {
-                if (!alreadyOwned) prefs[COINS_KEY] = outcome.remainingCoins
-                if (themeKey != null) prefs[themeKey] = true
-            }
-            success = outcome.success
-        }
-        return success
     }
 
     suspend fun updatePlayStats(isPerfect: Boolean) {

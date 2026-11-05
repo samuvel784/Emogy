@@ -251,13 +251,13 @@ internal fun ProgressionFeedback(
                 is TaskUiEvent.Claimed -> {
                     SoundManager.playCoin(currentSound)
                     onClaimed(ClaimBurstData(event.coins, event.hints))
-                    snackbarHostState.showSnackbar(
-                        context.getString(
-                            R.string.tasks_claimed_toast,
-                            event.coins,
-                            event.hints,
-                        ),
-                    )
+                    val toastMsg = when {
+                        event.coins > 0 && event.hints > 0 -> "Claimed 🪙 ${event.coins} and 💡 ${event.hints}"
+                        event.coins > 0 -> "Claimed 🪙 ${event.coins}"
+                        event.hints > 0 -> "Claimed 💡 ${event.hints}"
+                        else -> "Claimed!"
+                    }
+                    snackbarHostState.showSnackbar(toastMsg)
                 }
                 TaskUiEvent.NothingToClaim -> {
                     SoundManager.playMismatch(currentSound)
@@ -303,13 +303,19 @@ internal fun ClaimBurstOverlay(
             exit = scaleOut() + fadeOut(),
         ) {
             burst?.let { data ->
+                val burstText = buildString {
+                    if (data.coins > 0) append("+🪙 ${data.coins}")
+                    if (data.coins > 0 && data.hints > 0) append("  ")
+                    if (data.hints > 0) append("+💡 ${data.hints}")
+                    if (data.coins == 0 && data.hints == 0) append("✨ Claimed!")
+                }
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = EmeraldGreen,
                     modifier = Modifier.testTag("claim_burst"),
                 ) {
                     Text(
-                        text = "+🪙 ${data.coins}  +💡 ${data.hints}",
+                        text = burstText,
                         color = Color.White,
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,

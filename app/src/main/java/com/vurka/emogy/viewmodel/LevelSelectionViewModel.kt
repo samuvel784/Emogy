@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vurka.emogy.data.CoinTransaction
-import com.vurka.emogy.data.LevelCatalog
 import com.vurka.emogy.data.ProgressRepository
 import com.vurka.emogy.data.AudioSettings
 import com.vurka.emogy.data.DailyChallengeProgress
@@ -14,12 +13,10 @@ import com.vurka.emogy.data.store.PurchaseResult
 import com.vurka.emogy.data.store.StoreCatalog
 import com.vurka.emogy.data.store.StoreRepository
 import com.vurka.emogy.model.CardBackTheme
-import com.vurka.emogy.model.LevelConfig
 import com.vurka.emogy.util.AudioMix
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -54,11 +51,7 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
         initialValue = 0
     )
 
-    fun setLastPlayedLevel(level: Int) {
-        viewModelScope.launch {
-            repository.setLastPlayedLevel(level)
-        }
-    }
+
 
     val soundEnabled: StateFlow<Boolean> = repository.soundEnabled.stateIn(
         scope = viewModelScope,
@@ -134,7 +127,7 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    val allLevels: List<LevelConfig> = LevelCatalog.getAllLevels()
+
 
     fun setSoundEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -184,7 +177,7 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
         initialValue = 0
     )
 
-    fun getStars(level: Int): Flow<Int> = repository.getLevelStars(level)
+
     fun getBestMoves(level: Int): Flow<Int> = repository.getLevelBestMoves(level)
     fun getBestTime(level: Int): Flow<Int> = repository.getLevelBestTime(level)
 
@@ -258,19 +251,7 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
         initialValue = "default"
     )
 
-    fun setSelectedThemeId(id: String) {
-        viewModelScope.launch {
-            val ownedSet = ownedCosmetics.value
-            val levelsCompleted = totalLevelsCompleted.value
-            val cosmetic = StoreCatalog.cosmetic(id)
-            val isOwned = cosmetic != null && (
-                cosmetic.default ||
-                id in ownedSet ||
-                (cosmetic.milestoneLevel > 0 && levelsCompleted >= cosmetic.milestoneLevel)
-            )
-            themeRepository.setSelectedThemeId(id) { isOwned }
-        }
-    }
+
 
     val dailyStreak: StateFlow<Int> = repository.dailyStreak.stateIn(
         scope = viewModelScope,
@@ -308,11 +289,7 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
         initialValue = 0
     )
 
-    val animalCardFlips: StateFlow<Int> = repository.animalCardFlips.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0
-    )
+
 
     /** Emoji ids the player has matched, powering the offline album. */
     val collectedEmojis: StateFlow<Set<String>> = repository.collectedEmojis.stateIn(
@@ -362,45 +339,8 @@ class LevelSelectionViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    fun claimReward(rewardId: String, coinAmount: Int) {
-        viewModelScope.launch {
-            repository.claimReward(rewardId, coinAmount)
-        }
-    }
-
-    fun isRewardClaimed(rewardId: String): Flow<Boolean> = repository.isRewardClaimed(rewardId)
-
-    val dailyClaimedCount: StateFlow<Int> = repository.dailyClaimedCount.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0
-    )
-
-    val weeklyClaimedCount: StateFlow<Int> = repository.weeklyClaimedCount.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0
-    )
-
-    fun isThemePurchased(themeId: String): Flow<Boolean> = combine(
-        repository.isThemePurchased(themeId),
-        repository.ownedCosmetics,
-    ) { legacy, owned -> legacy || themeId in owned }
-
     /** One atomic transaction in [StoreRepository]; the UI only reacts to the result. */
     suspend fun purchase(itemId: String): PurchaseResult = storeRepository.purchase(itemId)
-
-    fun updatePlayStats(isPerfect: Boolean) {
-        viewModelScope.launch {
-            repository.updatePlayStats(isPerfect)
-        }
-    }
-
-    fun updateDailyStreak() {
-        viewModelScope.launch {
-            repository.updateDailyStreak()
-        }
-    }
 
     fun resetAllProgress() {
         viewModelScope.launch {

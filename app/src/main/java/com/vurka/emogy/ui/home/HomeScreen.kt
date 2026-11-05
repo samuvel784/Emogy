@@ -77,7 +77,7 @@ fun HomeScreen(
     val coins by viewModel.coins.collectAsState()
     val transactions by viewModel.coinTransactions.collectAsState()
     val lastPlayed by viewModel.lastPlayedLevel.collectAsState()
-    val completedLevels by viewModel.totalLevelsCompleted.collectAsState()
+    val starsMap by viewModel.starsMap.collectAsState()
     val totalFlips by viewModel.totalCardFlips.collectAsState()
     val soundOn by viewModel.soundEnabled.collectAsState()
     val welcomeSeen by viewModel.welcomeSeen.collectAsState()
@@ -143,8 +143,9 @@ fun HomeScreen(
     val world = remember(continueLevel) { LevelCatalog.getWorldInfo(continueLevel) }
     val worldStart = (world.index - 1) * LevelCatalog.LEVELS_PER_WORLD + 1
     val worldEnd = world.index * LevelCatalog.LEVELS_PER_WORLD
-    val worldCompletedLevels = (completedLevels - (world.index - 1) * LevelCatalog.LEVELS_PER_WORLD)
-        .coerceIn(0, LevelCatalog.LEVELS_PER_WORLD)
+    val worldCompletedLevels = remember(world, starsMap) {
+        (worldStart..worldEnd).count { (starsMap[it] ?: 0) > 0 }
+    }
     val worldProgress = (worldCompletedLevels.toFloat() / LevelCatalog.LEVELS_PER_WORLD).coerceIn(0f, 1f)
 
     Box(Modifier.fillMaxSize()) {
@@ -170,7 +171,10 @@ fun HomeScreen(
                 }
                 Spacer(Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    GlassInfoChip(Icons.Default.LocalFireDepartment, "$streak", Color(0xFFFF4D6D), isDark)
+                    GlassInfoChip(Icons.Default.LocalFireDepartment, "$streak", Color(0xFFFF4D6D), isDark) {
+                        SoundManager.playTap(soundOn)
+                        onDailyClicked()
+                    }
                     GlassInfoChip(Icons.Default.Star, "$totalStars", Color(0xFFF59E0B), isDark)
                     GlassInfoChip("🪙", "$coins", isDark) {
                         SoundManager.playTap(soundOn)
@@ -297,6 +301,10 @@ fun HomeScreen(
                             BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFFCBD5E1)),
                             RoundedCornerShape(24.dp)
                         )
+                        .clickable {
+                            SoundManager.playTap(soundOn)
+                            onWorldMapClicked()
+                        }
                         .padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -380,7 +388,8 @@ private fun GlassInfoChip(
     icon: ImageVector,
     text: String,
     tint: Color,
-    isDark: Boolean
+    isDark: Boolean,
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -390,6 +399,7 @@ private fun GlassInfoChip(
                 BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.12f) else Color(0xFFCBD5E1)),
                 RoundedCornerShape(50)
             )
+            .then(if (onClick != null) Modifier.pressBounce().clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)

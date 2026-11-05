@@ -86,7 +86,7 @@ class TaskEngine(private val calendar: GameCalendar) {
         return state.with(updated)
     }
 
-    fun markMilestoneClaimed(state: TaskState, atMillis: Long): TaskState {
+    fun markMilestoneClaimed(state: TaskState): TaskState {
         val monthly = state.monthly ?: return state
         return state.with(monthly.copy(milestoneClaimed = true))
     }

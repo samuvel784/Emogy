@@ -183,7 +183,7 @@ class TaskRepository(
                 !engine.monthlyMilestoneReady(current) -> ClaimOutcome.NotComplete
                 else -> {
                     grant(prefs, MONTHLY_MILESTONE_REWARD)
-                    current = engine.markMilestoneClaimed(current, now)
+                    current = engine.markMilestoneClaimed(current)
                     prefs[GameKeys.TASK_STATE] = TaskStateCodec.encode(current)
                     prefs[GameKeys.LAST_SEEN_DAY] = maxOf(lastSeen, today)
                     ClaimOutcome.Granted(

@@ -1,3 +1,10 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.TaskAction
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -109,39 +116,31 @@ android {
   }
 }
 
-/**
- * Guards release packaging so a build can never be signed with the public debug key.
- * It runs only for the tasks that actually produce a signed release artifact, which keeps
- * `assembleDebug` and `lintRelease` working without publishing credentials.
- */
-val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
-  group = "verification"
-  description = "Aborts unless a real upload keystore and all signing credentials are configured."
-  // Captured as plain values so this action stays compatible with Gradle's configuration cache.
-  val defaultKeystore = File(rootDir, "vurka-emogy-upload-key.jks").absolutePath
-  doFirst {
-    val keystorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
-      ?: (findProperty("android.injected.signing.store.file") as? String)
-      ?: (findProperty("signing.store.path") as? String)
-      ?: defaultKeystore
+abstract class VerifyReleaseSigningTask : DefaultTask() {
+  @get:Input
+  abstract val keystorePath: Property<String>
 
-    val storePass = System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() }
-      ?: (findProperty("android.injected.signing.store.password") as? String)
-      ?: (findProperty("signing.store.password") as? String)
+  @get:Input
+  abstract val storePassword: Property<String>
 
-    val keyPass = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() }
-      ?: (findProperty("android.injected.signing.key.password") as? String)
-      ?: (findProperty("signing.key.password") as? String)
+  @get:Input
+  abstract val keyPassword: Property<String>
 
-    val keyAlias = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
-      ?: (findProperty("android.injected.signing.key.alias") as? String)
-      ?: (findProperty("signing.key.alias") as? String)
+  @get:Input
+  abstract val keyAlias: Property<String>
+
+  @TaskAction
+  fun verify() {
+    val storePath = keystorePath.get()
+    val storePass = storePassword.get()
+    val keyPass = keyPassword.get()
+    val keyAliasVal = keyAlias.get()
 
     val missing = buildList {
-      if (!File(keystorePath).exists()) add("keystore file ($keystorePath)")
-      if (storePass.isNullOrBlank()) add("STORE_PASSWORD (or UI signing password)")
-      if (keyPass.isNullOrBlank()) add("KEY_PASSWORD (or UI key password)")
-      if (keyAlias.isNullOrBlank()) add("KEY_ALIAS (or UI key alias)")
+      if (!File(storePath).exists()) add("keystore file ($storePath)")
+      if (storePass.isBlank()) add("STORE_PASSWORD (or UI signing password)")
+      if (keyPass.isBlank()) add("KEY_PASSWORD (or UI key password)")
+      if (keyAliasVal.isBlank()) add("KEY_ALIAS (or UI key alias)")
     }
     if (missing.isNotEmpty()) {
       throw GradleException(
@@ -150,6 +149,58 @@ val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
       )
     }
   }
+}
+
+abstract class VerifyReleaseContentTask : DefaultTask() {
+  @get:InputFiles
+  abstract val watchedFiles: ConfigurableFileCollection
+
+  @TaskAction
+  fun verify() {
+    val offenders = watchedFiles.files.filter { it.exists() && it.readText().contains("REPLACE_WITH_") }
+    if (offenders.isNotEmpty()) {
+      throw GradleException(
+        "Placeholders are still present in: " + offenders.joinToString { it.name } +
+          ". Search the project for REPLACE_WITH_ and fill in your developer name, support email " +
+          "and country/state, then run ./gradlew syncLegalDocs. See EMOGY_DEVELOPMENT_AND_RELEASE_GUIDE.md, section 6."
+      )
+    }
+  }
+}
+
+/**
+ * Guards release packaging so a build can never be signed with the public debug key.
+ * It runs only for the tasks that actually produce a signed release artifact, which keeps
+ * `assembleDebug` and `lintRelease` working without publishing credentials.
+ */
+val verifyReleaseSigning = tasks.register<VerifyReleaseSigningTask>("verifyReleaseSigning") {
+  group = "verification"
+  description = "Aborts unless a real upload keystore and all signing credentials are configured."
+
+  val defaultKeystore = File(rootDir, "vurka-emogy-upload-key.jks").absolutePath
+  val envStorePath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+  val propStorePath = (findProperty("signing.store.path") as? String)
+    ?: (findProperty("android.injected.signing.store.file") as? String)
+
+  keystorePath.set(envStorePath ?: propStorePath ?: defaultKeystore)
+  storePassword.set(
+    System.getenv("STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("signing.store.password") as? String)
+      ?: (findProperty("android.injected.signing.store.password") as? String)
+      ?: ""
+  )
+  keyPassword.set(
+    System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("signing.key.password") as? String)
+      ?: (findProperty("android.injected.signing.key.password") as? String)
+      ?: ""
+  )
+  keyAlias.set(
+    System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
+      ?: (findProperty("signing.key.alias") as? String)
+      ?: (findProperty("android.injected.signing.key.alias") as? String)
+      ?: "vurka-emogy"
+  )
 }
 
 /**
@@ -169,26 +220,17 @@ tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(syncLegalDocs
  * A release must never ship with the REPLACE_WITH_* placeholders still in the legal pages or the
  * support address. Debug builds and tests are unaffected.
  */
-val verifyReleaseContent = tasks.register("verifyReleaseContent") {
+val verifyReleaseContent = tasks.register<VerifyReleaseContentTask>("verifyReleaseContent") {
   group = "verification"
   description = "Aborts the release build while any REPLACE_WITH_* placeholder is left in the docs."
-  val watched = listOf(
+
+  watchedFiles.from(
     File(rootDir, "docs/privacy-policy.md"),
     File(rootDir, "docs/terms-of-service.md"),
     File(rootDir, "docs/credits.md"),
     File(rootDir, "docs/index.md"),
-    File(projectDir, "src/main/res/values/strings.xml"),
+    File(projectDir, "src/main/res/values/strings.xml")
   )
-  doFirst {
-    val offenders = watched.filter { it.exists() && it.readText().contains("REPLACE_WITH_") }
-    if (offenders.isNotEmpty()) {
-      throw GradleException(
-        "Placeholders are still present in: " + offenders.joinToString { it.name } +
-          ". Search the project for REPLACE_WITH_ and fill in your developer name, support email " +
-          "and country/state, then run ./gradlew syncLegalDocs. See EMOGY_DEVELOPMENT_AND_RELEASE_GUIDE.md, section 6."
-      )
-    }
-  }
 }
 
 tasks.matching { it.name == "packageRelease" || it.name == "packageReleaseBundle" }

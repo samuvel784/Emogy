@@ -37,7 +37,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.vurka.emogy.data.AlbumProgressCalculator
 import com.vurka.emogy.data.EmojiCatalog
-import com.vurka.emogy.data.LevelCatalog
 import com.vurka.emogy.data.login.LoginRepository
 import com.vurka.emogy.data.tasks.TaskRepository
 import com.vurka.emogy.ui.album.AlbumScreen

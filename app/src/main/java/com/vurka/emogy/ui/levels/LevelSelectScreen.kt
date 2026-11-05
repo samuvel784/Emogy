@@ -2,7 +2,6 @@ package com.vurka.emogy.ui.levels
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -34,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAbsoluteAlignment
 import androidx.compose.ui.Modifier
+import com.vurka.emogy.ui.theme.LocalReduceMotion
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -134,6 +134,7 @@ fun LevelSelectScreen(
     val starsMap by viewModel.starsMap.collectAsStateWithLifecycle()
     val totalStars by viewModel.totalStars.collectAsStateWithLifecycle()
     val soundOn by viewModel.soundEnabled.collectAsStateWithLifecycle()
+    val hintTokens by viewModel.hintTokens.collectAsStateWithLifecycle()
 
     val rows = mapRows
     val worlds = remember { LevelCatalog.getWorlds() }
@@ -358,6 +359,7 @@ fun LevelSelectScreen(
             bestMoves = bestMoves,
             bestTime = bestTime,
             zen = false,
+            hintTokens = hintTokens,
             onPlay = {
                 SoundManager.playTap(soundOn)
                 onLevelSelected(selectedLevel)
@@ -667,6 +669,7 @@ private fun MapNodeRow(
 
 @Composable
 private fun PulseRing(shape: Shape, color: Color) {
+    if (LocalReduceMotion.current) return
     val v = rememberInfiniteTransition(label = "ring").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -790,6 +793,7 @@ private fun LevelPreviewDialog(
     bestMoves: Int,
     bestTime: Int,
     zen: Boolean,
+    hintTokens: Int,
     onPlay: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -832,7 +836,6 @@ private fun LevelPreviewDialog(
                     }
                 }
                 InfoLine("🃏", stringResource(R.string.map_pairs, config.pairCount, config.pairCount * 2))
-                InfoLine("👀", stringResource(R.string.map_memorise, config.previewTimeSec))
                 if (zen) {
                     InfoLine("🧘", stringResource(R.string.map_zen_note))
                 } else {
@@ -863,6 +866,7 @@ private fun LevelPreviewDialog(
                     "💡",
                     when {
                         zen || config.maxHints < 0 -> stringResource(R.string.map_hints_unlimited)
+                        config.maxHints == 0 && hintTokens > 0 -> "💡 $hintTokens Hint tokens available"
                         config.maxHints == 0 -> stringResource(R.string.map_hints_none)
                         else -> pluralStringResource(R.plurals.map_hints, config.maxHints, config.maxHints)
                     }
