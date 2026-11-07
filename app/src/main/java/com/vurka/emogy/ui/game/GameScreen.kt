@@ -490,13 +490,15 @@ fun GameScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    TextButton(
-                        onClick = {
-                            SoundManager.playTap(soundEnabled)
-                            onWorldMap()
+                    if (!viewModel.isDaily) {
+                        TextButton(
+                            onClick = {
+                                SoundManager.playTap(soundEnabled)
+                                onWorldMap()
+                            }
+                        ) {
+                            Text(stringResource(R.string.action_choose_level), color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
                         }
-                    ) {
-                        Text(stringResource(R.string.action_choose_level), color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
                     }
                     TextButton(
                         onClick = {
@@ -793,18 +795,20 @@ private fun VictoryDialog(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                TextButton(
-                    onClick = {
-                        SoundManager.playTap(soundEnabled)
-                        onWorldMap()
-                    },
-                    modifier = Modifier.testTag("victory_map_button")
-                ) {
-                    Text(
-                        if (isDaily) stringResource(R.string.action_choose_level) else stringResource(R.string.game_world_map),
-                        color = RoyalBlue,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                if (!isDaily) {
+                    TextButton(
+                        onClick = {
+                            SoundManager.playTap(soundEnabled)
+                            onWorldMap()
+                        },
+                        modifier = Modifier.testTag("victory_map_button")
+                    ) {
+                        Text(
+                            stringResource(R.string.game_world_map),
+                            color = RoyalBlue,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
                 if (!isDaily) {
                     TextButton(
