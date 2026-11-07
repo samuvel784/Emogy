@@ -27,6 +27,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -238,10 +240,13 @@ fun LevelSelectScreen(
                     is MapRow.Node -> {
                         val level = row.config.levelNumber
                         val stars = starsMap[level] ?: 0
+                        val isUnlocked = level == 1 || (starsMap[level - 1] ?: 0) > 0 || stars > 0
+                        val context = LocalContext.current
                         MapNodeRow(
                             level = row.config,
                             world = row.world,
                             stars = stars,
+                            isUnlocked = isUnlocked,
                             isCurrent = level == displayLevel,
                             bias = rowBiases[index],
                             biasPrev = rowBiases[(index - 1).coerceAtLeast(0)],
@@ -250,7 +255,11 @@ fun LevelSelectScreen(
                             nextDone = (starsMap[level + 1] ?: 0) > 0,
                             onClick = {
                                 SoundManager.playTap(soundOn)
-                                selectedLevel = level
+                                if (isUnlocked) {
+                                    selectedLevel = level
+                                } else {
+                                    Toast.makeText(context, "Complete previous level to unlock!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         )
                     }
@@ -551,6 +560,7 @@ private fun MapNodeRow(
     level: LevelConfig,
     world: WorldInfo,
     stars: Int,
+    isUnlocked: Boolean,
     isCurrent: Boolean,
     bias: Float,
     biasPrev: Float,
@@ -603,18 +613,21 @@ private fun MapNodeRow(
                 .align(BiasAbsoluteAlignment(bias, 0f))
                 .size(nodeSize)
         ) {
-            if (isCurrent) PulseRing(shape = shape, color = Gold)
+            if (isCurrent && isUnlocked) PulseRing(shape = shape, color = Gold)
 
             val fill = when {
+                !isUnlocked -> Brush.linearGradient(listOf(Color(0xFF334155).copy(alpha = 0.6f), Color(0xFF1E293B).copy(alpha = 0.6f)))
                 stars > 0 -> Brush.linearGradient(listOf(colorA, colorB))
                 else -> Brush.linearGradient(listOf(colorA.copy(alpha = 0.75f), colorB.copy(alpha = 0.75f)))
             }
             val borderColor = when {
+                !isUnlocked -> Color.Gray.copy(alpha = 0.4f)
                 isCurrent -> Color.White
                 boss -> Gold
                 else -> Color.White.copy(alpha = 0.7f)
             }
             val description = when {
+                !isUnlocked -> stringResource(R.string.cd_locked)
                 stars > 0 -> stringResource(R.string.map_cd_level_stars, number, world.name, stars)
                 boss -> stringResource(R.string.map_cd_level_boss, number, world.name)
                 else -> stringResource(R.string.map_cd_level, number, world.name)
@@ -623,36 +636,40 @@ private fun MapNodeRow(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (isCurrent) Modifier.pulse(1f, 1.08f, 800) else Modifier)
+                    .then(if (isCurrent && isUnlocked) Modifier.pulse(1f, 1.08f, 800) else Modifier)
                     .pressBounce()
                     .shadow(8.dp, shape)
                     .clip(shape)
                     .background(fill)
-                    .border(BorderStroke(if (isCurrent) 3.dp else 2.dp, borderColor), shape)
+                    .border(BorderStroke(if (isCurrent && isUnlocked) 3.dp else 2.dp, borderColor), shape)
                     .clickable(onClick = onClick)
                     .semantics { contentDescription = description }
                     .testTag("level_item_$number"),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$number", fontSize = if (boss) 20.sp else 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                    if (stars > 0) {
-                        Text(
-                            "★".repeat(stars) + "☆".repeat((3 - stars).coerceAtLeast(0)),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Gold
-                        )
-                    } else if (boss) {
-                        Text(stringResource(R.string.map_boss), fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Gold)
+                if (!isUnlocked) {
+                    Text("🔒", fontSize = 20.sp)
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$number", fontSize = if (boss) 20.sp else 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        if (stars > 0) {
+                            Text(
+                                "★".repeat(stars) + "☆".repeat((3 - stars).coerceAtLeast(0)),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Gold
+                            )
+                        } else if (boss) {
+                            Text(stringResource(R.string.map_boss), fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Gold)
+                        }
                     }
                 }
             }
 
-            if (boss) {
+            if (boss && isUnlocked) {
                 Text("👑", fontSize = 22.sp, modifier = Modifier.align(Alignment.TopCenter).offset(y = (-16).dp))
             }
-            if (isCurrent) {
+            if (isCurrent && isUnlocked) {
                 // Player marker hopping above the current level.
                 Text(
                     "🧙",

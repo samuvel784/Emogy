@@ -35,7 +35,7 @@ class LevelSelectScreenTest {
     }
 
     @Test
-    fun brandNewPlayerCanSelectLevel1AndLevel2Directly() {
+    fun level1IsOpenAndLevel2IsLockedUntilLevel1IsCompleted() {
         val app = RuntimeEnvironment.getApplication()
         val viewModel = LevelSelectionViewModel(app)
         var selectedLevel = 0
@@ -52,7 +52,7 @@ class LevelSelectScreenTest {
         }
         flush()
 
-        // Level 1: selectable on a brand new profile
+        // Level 1: open and selectable
         compose.onNodeWithTag("level_item_1").performClick()
         flush()
         compose.onNodeWithText("Level 1").assertIsDisplayed()
@@ -60,12 +60,9 @@ class LevelSelectScreenTest {
         flush()
         assertEquals(1, selectedLevel)
 
-        // Level 2: selectable immediately on a brand new profile (0 stars in level 1)
+        // Level 2: locked initially
         compose.onNodeWithTag("level_item_2").performClick()
         flush()
-        compose.onNodeWithText("Level 2").assertIsDisplayed()
-        compose.onNodeWithTag("play_level_button").performClick()
-        flush()
-        assertEquals(2, selectedLevel)
+        compose.onNodeWithText("Level 2").assertDoesNotExist()
     }
 }
