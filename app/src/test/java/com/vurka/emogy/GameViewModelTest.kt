@@ -905,6 +905,25 @@ class GameViewModelTest {
         runCurrent()
     }
 
+    @Test
+    fun hintRevealsWrongCardsAndResetsAfter5Sec() = runTest(dispatcher) {
+        val vm = newGame(level = 101)
+        val available = vm.state.value.cards.filter { !it.isFlipped && !it.isMatched }
+        val first = available[0]
+        val secondWrong = available.first { it.emojiId != first.emojiId }
+        vm.onCardClicked(first.id)
+        vm.onCardClicked(secondWrong.id)
+        vm.useHint()
+        runCurrent()
+        assertTrue(vm.state.value.cards.all { it.isFlipped || it.isMatched })
+
+        advanceTimeBy(5000L)
+        runCurrent()
+        assertFalse(vm.state.value.cards.filter { !it.isMatched }.any { it.isFlipped })
+
+        vm.viewModelScope.cancel()
+    }
+
     private fun TestScope.matchAll(vm: GameViewModel) {
         val pairs = vm.state.value.cards.groupBy { it.emojiId }
         for ((_, cards) in pairs) {

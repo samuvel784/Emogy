@@ -408,6 +408,9 @@ class GameViewModel(
             hapticsEnabled = hapticsEnabled.value,
         )
 
+        mismatchJob?.cancel()
+        autoHideJob?.cancel()
+
         _state.update { state ->
             val nextHintsLeft = if (consumeFree && state.hintsLeft > 0) state.hintsLeft - 1 else state.hintsLeft
             state.copy(
@@ -416,6 +419,8 @@ class GameViewModel(
                 hintCooldownRemainingSec = 10,
                 hintsLeft = nextHintsLeft,
                 hintsUsed = state.hintsUsed + 1,
+                firstSelectedCardId = null,
+                secondSelectedCardId = null,
             )
         }
         scheduleSnapshotSave()
@@ -426,10 +431,12 @@ class GameViewModel(
             _state.update { state ->
                 state.copy(
                     cards = state.cards.map {
-                        if ((!it.isMatched) && (it.id != state.firstSelectedCardId) && (it.id != state.secondSelectedCardId)) {
+                        if (!it.isMatched) {
                             it.copy(isFlipped = false)
                         } else it
-                    }
+                    },
+                    firstSelectedCardId = null,
+                    secondSelectedCardId = null,
                 )
             }
         }

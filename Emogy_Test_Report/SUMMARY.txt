@@ -1,0 +1,19 @@
+EMOGY AUTOMATED TEST SUMMARY
+
+Start: 11/04/2026 22:46:11
+End: 11/04/2026 22:53:00
+
+Build exit code: 0
+Unit test exit code: 0
+Instrumentation test exit code: 0
+
+Full Logcat: emogy-logcat.txt
+Important Entries: important-log-entries.txt
+Build Results: build-results.txt
+Test Results: test-results.txt
+
+NOTE:
+A successful Gradle build does not prove that
+all application functionality works correctly.
+
+Manual gameplay verification is still required.
